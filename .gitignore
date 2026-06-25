@@ -1,20 +1,22 @@
 # Python
-
-**pycache**/
+__pycache__/
+**/__pycache__/
 *.py[cod]
 .venv/
 venv/
 
-# Environment variables / secrets
+# Node / frontend
+node_modules/
+dist/
 
+# Environment variables / secrets
 .env
 .env.*
 !.env.example
 
 # IDE / OS
-
 .vscode/
+.DS_Store
 
 # Logs
-
 *.log
