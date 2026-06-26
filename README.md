@@ -19,17 +19,70 @@ Il sistema prevede:
 - utilizzo di indici;
 - interfaccia utente minimale.
 
-## Workflow
+## Struttura del progetto
 
-Lo sviluppo segue il workflow richiesto dal corso:
+```text
+backend/              Backend FastAPI
+frontend/             Interfaccia utente minimale
+db/schema/            Schema, validator e indici MongoDB
+scripts/              Script di pulizia, trasformazione e importazione dati
+queries/              Query MongoDB e aggregation pipeline
+benchmarks/results/   Risultati dei benchmark
+data/raw/             Dataset originale
+data/processed/       Dati trasformati dagli script
+docs/report/          Documentazione finale del progetto
+```
 
-1. creazione di una issue;
-2. creazione di un branch dedicato con formato `issue-<ID>-<breve-descrizione>`;
-3. apertura di una Pull Request verso `main`;
-4. collegamento della PR alla issue tramite `Closes #ID`;
-5. review;
-6. merge dopo approvazione.
+## Avvio MongoDB con Docker
+
+Il progetto utilizza Docker per avviare MongoDB in locale.
+
+Creare un file `.env` a partire dal file di esempio:
+
+```bash
+cp .env.example .env
+```
+
+Avviare MongoDB:
+
+```bash
+docker compose up -d
+```
+
+Verificare lo stato del container:
+
+```bash
+docker compose ps
+```
+
+Visualizzare i log del servizio MongoDB:
+
+```bash
+docker compose logs mongodb
+```
+
+Fermare MongoDB:
+
+```bash
+docker compose down
+```
+
+Fermare MongoDB rimuovendo anche il volume dati:
+
+```bash
+docker compose down -v
+```
+
+## File di configurazione
+
+Il file `.env.example` contiene variabili di ambiente di esempio.
+
+Il file `.env` viene usato solo in locale e non deve essere caricato nel repository.
 
 ## Stato del progetto
 
-Setup iniziale del repository.
+Setup iniziale del repository completato.
+
+La struttura base del progetto è stata predisposta e MongoDB è avviabile localmente tramite Docker.
+
+Le prossime attività riguarderanno l’analisi del dataset, la progettazione del modello documentale MongoDB e gli script di trasformazione/importazione dei dati.
