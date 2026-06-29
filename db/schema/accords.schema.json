@@ -1,0 +1,8 @@
+{
+  "collection": "accords",
+  "description": "Collection degli accordi principali",
+  "fields": {
+    "_id": "string",
+    "name": "string"
+  }
+}

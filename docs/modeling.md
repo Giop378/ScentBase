@@ -11,9 +11,10 @@ Lo scopo è definire una specifica tecnica preliminare del modello dati, indican
 * collection previste;
 * collegamenti tra collection;
 * scelte di embedding e referencing;
-* campi necessari per query, aggregazioni, filtri avanzati, ricerca di profumi simili e dashboard.
+* campi necessari per query, aggregazioni, filtri avanzati, ricerca di profumi simili e dashboard;
+* campi di arricchimento previsti per note olfattive e profumieri.
 
-Il documento non sostituisce la documentazione finale del progetto, ma definisce la base tecnica della modellazione dati.
+Il documento definisce la base tecnica della modellazione dati.
 
 ---
 
@@ -58,6 +59,21 @@ mainaccord3
 mainaccord4
 mainaccord5
 ```
+
+---
+
+## Arricchimento dei dati
+
+Il dataset principale resta `fra_cleaned.csv`.
+
+Alcune informazioni non presenti direttamente nel CSV potranno essere aggiunte come arricchimento dei dati durante la trasformazione:
+
+* `olfactory_group` per le note olfattive;
+* `nationality` per i profumieri.
+
+Il campo `olfactory_group` consente di classificare le note in gruppi olfattivi più generali. Il campo `nationality` consente invece di arricchire parzialmente la collection dei profumieri.
+
+Entrambi i campi sono opzionali. Quando l'informazione non è disponibile o non è ritenuta sufficientemente affidabile, il valore sarà impostato a `null`.
 
 ---
 
@@ -117,9 +133,9 @@ Ogni profumo è associato a:
 * uno o più accordi principali;
 * zero, uno o più profumieri.
 
-Le note olfattive sono suddivise in note di testa, note di cuore e note di fondo. Gli accordi principali descrivono invece il profilo generale della fragranza.
+Le note olfattive sono suddivise in note di testa, note di cuore e note di fondo e, quando possibile, possono essere associate a un gruppo olfattivo. Gli accordi principali descrivono invece il profilo generale della fragranza. I profumieri possono essere arricchiti con una nazionalità opzionale.
 
-Il sistema dovrà consentire la consultazione e l’analisi del catalogo per brand, genere, anno, rating, note olfattive, accordi e profumieri.
+Il sistema dovrà consentire la consultazione e l’analisi del catalogo per brand, genere, anno, rating, note olfattive, gruppi olfattivi, accordi e profumieri.
 
 ---
 
@@ -216,9 +232,18 @@ Schema logico preliminare:
 ```json
 {
   "_id": "string",
-  "name": "string"
+  "name": "string",
+  "olfactory_group": "string|null"
 }
 ```
+
+Descrizione dei campi principali:
+
+| Campo             | Descrizione                                                |
+| ----------------- | ---------------------------------------------------------- |
+| `_id`             | Identificativo tecnico della nota, ad esempio `note_musk`  |
+| `name`            | Nome leggibile della nota                                  |
+| `olfactory_group` | Gruppo olfattivo della nota, se disponibile                |
 
 Le note derivano dalle colonne:
 
@@ -229,6 +254,8 @@ Base
 ```
 
 Dall’analisi sono state rilevate 1671 note distinte considerando insieme note di testa, cuore e fondo.
+
+Il campo `olfactory_group` è un campo di arricchimento opzionale. Permette di usare la collection `notes` come vocabolario controllato arricchito, utile per filtri, aggregazioni e ricerca di profumi simili.
 
 ---
 
@@ -268,9 +295,18 @@ Schema logico preliminare:
 ```json
 {
   "_id": "string",
-  "name": "string"
+  "name": "string",
+  "nationality": "string|null"
 }
 ```
+
+Descrizione dei campi principali:
+
+| Campo         | Descrizione                                                        |
+| ------------- | ------------------------------------------------------------------ |
+| `_id`         | Identificativo tecnico del profumiere, ad esempio `perfumer_name`  |
+| `name`        | Nome leggibile del profumiere                                      |
+| `nationality` | Nazionalità del profumiere, se disponibile                         |
 
 I profumieri derivano dalle colonne:
 
@@ -280,6 +316,8 @@ Perfumer2
 ```
 
 Il valore `unknown` non verrà considerato un profumiere valido e non genererà un documento nella collection `perfumers`.
+
+Il campo `nationality` è un campo di arricchimento opzionale. Può essere compilato con supporto di strumenti di intelligenza artificiale; se l’informazione non è disponibile o non è ritenuta sufficientemente affidabile, il valore resta `null`.
 
 Se un profumo non ha profumieri noti, il campo `perfumer_ids` nella collection `perfumes` sarà un array vuoto.
 
@@ -325,6 +363,8 @@ Questa struttura consente di mantenere separate le entità principali del miniwo
 | `mainaccord3`  | `accords` e `perfumes.accord_ids`     |
 | `mainaccord4`  | `accords` e `perfumes.accord_ids`     |
 | `mainaccord5`  | `accords` e `perfumes.accord_ids`     |
+| arricchimento note | `notes.olfactory_group`           |
+| arricchimento profumieri | `perfumers.nationality`      |
 
 ---
 
@@ -334,9 +374,17 @@ Il modello utilizzerà principalmente il **referencing** per collegare profumi, 
 
 La scelta è motivata dal fatto che brand, note, accordi e profumieri possono comparire in molti profumi diversi e devono essere interrogabili separatamente.
 
+Inoltre, alcune collection collegate possono contenere metadati propri:
+
+* `brands` include il paese del brand;
+* `notes` include il gruppo olfattivo, quando disponibile;
+* `perfumers` include la nazionalità, quando disponibile.
+
 La collection `perfumes` manterrà array di identificativi per rappresentare le relazioni molti-a-molti con note, accordi e profumieri.
 
-Questa soluzione riduce duplicazioni, mantiene chiari i collegamenti tra le collection e consente query con `$lookup`.
+Questa soluzione distingue gli identificativi tecnici dai valori leggibili, mantiene separati concetti diversi del miniworld e consente query con `$lookup`.
+
+L’embedding completo dei documenti collegati non viene adottato per le entità principali, perché renderebbe più difficile mantenere separati e riutilizzabili brand, note, accordi e profumieri.
 
 ---
 
@@ -353,6 +401,8 @@ A livello di modellazione si prevedono le seguenti scelte:
 | `Rating Value` con virgola decimale | convertire in numero float                 |
 | `Rating Count`                      | convertire o mantenere come numero intero  |
 | note vuote o non valide             | ignorare nella trasformazione              |
+| `olfactory_group` non disponibile   | salvare `null`                             |
+| `nationality` non disponibile o non affidabile | salvare `null`                  |
 
 ---
 
@@ -363,10 +413,10 @@ La modellazione proposta supporta le funzionalità principali del progetto.
 | Funzionalità           | Supporto nel modello                                                               |
 | ---------------------- | ---------------------------------------------------------------------------------- |
 | Consultazione catalogo | dati principali in `perfumes`                                                      |
-| Ricerca                | campi `name`, `brand_id`, `gender`, `year`, `rating`, `all_note_ids`, `accord_ids` |
+| Ricerca                | campi `name`, `brand_id`, `gender`, `year`, `rating`, `all_note_ids`, `accord_ids` e dati collegati tramite `$lookup` |
 | CRUD                   | operazioni principali sulla collection `perfumes`                                  |
 | JOIN con `$lookup`     | riferimenti verso `brands`, `notes`, `accords`, `perfumers`                        |
-| Aggregazioni           | campi `rating`, `votes`, `brand_id`, `all_note_ids`, `accord_ids`, `year`          |
+| Aggregazioni           | campi `rating`, `votes`, `brand_id`, `all_note_ids`, `accord_ids`, `year` e metadati collegati come `olfactory_group` |
 
 ---
 
@@ -387,6 +437,8 @@ votes
 all_note_ids
 accord_ids
 perfumer_ids
+notes.olfactory_group
+perfumers.nationality
 ```
 
 Esempi di interrogazioni supportabili:
@@ -396,6 +448,8 @@ profumi con una specifica nota e rating minimo
 profumi di un certo brand con uno specifico accordo
 profumi unisex ordinati per rating
 profumi pubblicati dopo un certo anno
+profumi con note appartenenti a uno specifico gruppo olfattivo
+profumi associati a profumieri di una certa nazionalità
 ```
 
 ### Ricerca di profumi simili
@@ -405,6 +459,7 @@ La ricerca di profumi simili sarà basata principalmente su:
 ```text
 all_note_ids
 accord_ids
+notes.olfactory_group
 ```
 
 Un criterio preliminare di similarità potrà essere:
@@ -412,6 +467,8 @@ Un criterio preliminare di similarità potrà essere:
 ```text
 similarity_score = numero_note_condivise * 2 + numero_accordi_condivisi
 ```
+
+Il gruppo olfattivo delle note potrà essere usato come informazione aggiuntiva per migliorare o spiegare la similarità tra profumi.
 
 ### Mini dashboard statistica
 
@@ -424,6 +481,8 @@ brand_id
 year
 all_note_ids
 accord_ids
+notes.olfactory_group
+perfumers.nationality
 ```
 
 Statistiche supportabili:
@@ -435,6 +494,8 @@ rating medio per brand
 note più frequenti
 accordi più frequenti
 distribuzione dei profumi per anno
+distribuzione delle note per gruppo olfattivo
+distribuzione dei profumieri per nazionalità
 ```
 
 ---
@@ -447,5 +508,17 @@ Scelte previste:
 
 * `Perfume` non verrà usato come `_id`, perché non è univoco;
 * `url` verrà conservato come `source_url`, perché è un riferimento stabile al record originale;
-* gli `_id` delle collection potranno essere generati a partire da valori normalizzati o tramite identificativi sintetici;
+* gli `_id` delle collection collegate saranno generati tramite valori normalizzati con prefisso della collection;
+* il campo `name` conserverà invece il valore leggibile dell'entità;
 * le relazioni tra collection useranno gli `_id` generati durante la trasformazione.
+
+Esempi di identificativi:
+
+```text
+brand_dior
+note_bergamot
+accord_warm_spicy
+perfumer_alberto_morillas
+```
+
+Questa scelta permette di distinguere l'identificativo tecnico usato nei riferimenti dal nome leggibile mostrato all'utente.

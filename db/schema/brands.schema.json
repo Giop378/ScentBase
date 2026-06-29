@@ -1,0 +1,9 @@
+{
+  "collection": "brands",
+  "description": "Collection dei brand dei profumi",
+  "fields": {
+    "_id": "string",
+    "name": "string",
+    "country": "string|null"
+  }
+}
