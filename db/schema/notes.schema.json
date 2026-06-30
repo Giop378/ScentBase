@@ -1,0 +1,9 @@
+{
+  "collection": "notes",
+  "description": "Collection delle note olfattive",
+  "fields": {
+    "_id": "string",
+    "name": "string",
+    "olfactory_group": "string|null"
+  }
+}

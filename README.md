@@ -1,6 +1,6 @@
 # ScentBase
 
-Sistema NoSQL per la gestione e l’analisi di profumi, note olfattive e valutazioni.
+Sistema NoSQL per la gestione e l’analisi di profumi, note olfattive, accordi, profumieri e valutazioni.
 
 ## Tipologia
 
@@ -12,25 +12,76 @@ Il progetto ha l’obiettivo di realizzare una proof of concept per importare, m
 
 Il sistema prevede:
 
-- modellazione dei dati in collection MongoDB;
-- operazioni CRUD;
-- query di ricerca e aggregazione;
-- JOIN tra collection tramite `$lookup`;
-- utilizzo di indici;
-- interfaccia utente minimale.
+* modellazione dei dati in collection MongoDB;
+* operazioni CRUD;
+* query di ricerca e aggregazione;
+* JOIN tra collection tramite `$lookup`;
+* utilizzo di indici;
+* interfaccia utente minimale.
 
 ## Struttura del progetto
 
 ```text
 backend/              Backend FastAPI
 frontend/             Interfaccia utente minimale
-db/schema/            Schema, validator e indici MongoDB
+db/schema/            Schemi preliminari delle collection MongoDB
 scripts/              Script di pulizia, trasformazione e importazione dati
 queries/              Query MongoDB e aggregation pipeline
 benchmarks/results/   Risultati dei benchmark
 data/raw/             Dataset originale
 data/processed/       Dati trasformati dagli script
+docs/modeling.md      Modellazione documentale preliminare
 docs/report/          Documentazione finale del progetto
+```
+
+## Modellazione dati
+
+La modellazione documentale preliminare è descritta nel file:
+
+```text
+docs/modeling.md
+```
+
+Il modello prevede cinque collection principali:
+
+```text
+perfumes
+brands
+notes
+accords
+perfumers
+```
+
+La collection centrale è `perfumes`, che contiene i riferimenti verso le altre collection tramite identificativi condivisi.
+
+Gli schemi preliminari delle collection sono disponibili nella cartella:
+
+```text
+db/schema/
+```
+
+Gli schemi descrivono la struttura iniziale dei documenti MongoDB e saranno usati come riferimento per le successive fasi di trasformazione, importazione, query e sviluppo dell’applicazione.
+
+## Dataset
+
+Il dataset principale previsto per il progetto è:
+
+```text
+fra_cleaned.csv
+```
+
+Il file contiene dati relativi a profumi, brand, paese del brand, genere, rating, numero di valutazioni, anno, note olfattive, profumieri e accordi principali.
+
+Il dataset completo può essere collocato localmente nella cartella:
+
+```text
+data/raw/
+```
+
+I dati trasformati dagli script saranno salvati in:
+
+```text
+data/processed/
 ```
 
 ## Avvio MongoDB con Docker
@@ -85,4 +136,6 @@ Setup iniziale del repository completato.
 
 La struttura base del progetto è stata predisposta e MongoDB è avviabile localmente tramite Docker.
 
-Le prossime attività riguarderanno l’analisi del dataset, la progettazione del modello documentale MongoDB e gli script di trasformazione/importazione dei dati.
+È stata definita la modellazione documentale preliminare del database MongoDB, con le collection principali, i collegamenti tramite riferimenti, le scelte di modellazione e gli schemi preliminari in `db/schema/`.
+
+Le prossime attività riguarderanno l’implementazione degli script di pulizia, trasformazione e importazione del dataset.

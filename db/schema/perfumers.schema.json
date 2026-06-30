@@ -1,0 +1,9 @@
+{
+  "collection": "perfumers",
+  "description": "Collection dei profumieri",
+  "fields": {
+    "_id": "string",
+    "name": "string",
+    "nationality": "string|null"
+  }
+}

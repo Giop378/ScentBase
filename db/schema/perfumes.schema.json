@@ -1,0 +1,29 @@
+{
+  "collection": "perfumes",
+  "description": "Collection principale dei profumi",
+  "fields": {
+    "_id": "string",
+    "source_url": "string",
+    "name": "string",
+    "brand_id": "string",
+    "gender": "string",
+    "rating": "number",
+    "votes": "number",
+    "year": "number|null",
+    "top_note_ids": "array<string>",
+    "middle_note_ids": "array<string>",
+    "base_note_ids": "array<string>",
+    "all_note_ids": "array<string>",
+    "accord_ids": "array<string>",
+    "perfumer_ids": "array<string>"
+  },
+  "relationships": {
+    "brand_id": "brands._id",
+    "top_note_ids": "notes._id",
+    "middle_note_ids": "notes._id",
+    "base_note_ids": "notes._id",
+    "all_note_ids": "notes._id",
+    "accord_ids": "accords._id",
+    "perfumer_ids": "perfumers._id"
+  }
+}
