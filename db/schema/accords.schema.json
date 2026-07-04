@@ -3,6 +3,7 @@
   "description": "Collection degli accordi principali",
   "fields": {
     "_id": "string",
-    "name": "string"
+    "name": "string",
+    "color_hex": "string"
   }
 }

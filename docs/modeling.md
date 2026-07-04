@@ -12,7 +12,7 @@ Lo scopo è definire una specifica tecnica preliminare del modello dati, indican
 * collegamenti tra collection;
 * scelte di embedding e referencing;
 * campi necessari per query, aggregazioni, filtri avanzati, ricerca di profumi simili e dashboard;
-* campi di arricchimento previsti per note olfattive e profumieri.
+* campi di arricchimento previsti per note olfattive, accordi e profumieri.
 
 Il documento definisce la base tecnica della modellazione dati.
 
@@ -66,14 +66,15 @@ mainaccord5
 
 Il dataset principale resta `fra_cleaned.csv`.
 
-Alcune informazioni non presenti direttamente nel CSV potranno essere aggiunte come arricchimento dei dati durante la trasformazione:
+Alcune informazioni non presenti direttamente nel CSV vengono aggiunte come arricchimento dei dati durante la trasformazione:
 
 * `olfactory_group` per le note olfattive;
+* `color_hex` per gli accordi principali;
 * `nationality` per i profumieri.
 
-Il campo `olfactory_group` consente di classificare le note in gruppi olfattivi più generali. Il campo `nationality` consente invece di arricchire parzialmente la collection dei profumieri.
+Questi campi saranno valorizzati con supporto di strumenti AI e controllati manualmente. Non sono usati come identificativi primari, ma come metadati descrittivi utili per filtri, aggregazioni, ricerca di profumi simili e mini dashboard statistica.
 
-Entrambi i campi sono opzionali. Quando l'informazione non è disponibile o non è ritenuta sufficientemente affidabile, il valore sarà impostato a `null`.
+Per evitare valori null nei campi di arricchimento, verranno usati valori di fallback controllati: `other` per gruppi olfattivi non classificabili, `#9E9E9E` per colori non specifici e `Unknown` per nazionalità non determinabili con sufficiente sicurezza.
 
 ---
 
@@ -133,7 +134,7 @@ Ogni profumo è associato a:
 * uno o più accordi principali;
 * zero, uno o più profumieri.
 
-Le note olfattive sono suddivise in note di testa, note di cuore e note di fondo e, quando possibile, possono essere associate a un gruppo olfattivo. Gli accordi principali descrivono invece il profilo generale della fragranza. I profumieri possono essere arricchiti con una nazionalità opzionale.
+Le note olfattive sono suddivise in note di testa, note di cuore e note di fondo e sono associate a un gruppo olfattivo tramite arricchimento dei dati. Gli accordi principali descrivono il profilo generale della fragranza e sono associati a un colore rappresentativo. I profumieri possono essere arricchiti con una nazionalità descrittiva.
 
 Il sistema dovrà consentire la consultazione e l’analisi del catalogo per brand, genere, anno, rating, note olfattive, gruppi olfattivi, accordi e profumieri.
 
@@ -233,7 +234,7 @@ Schema logico preliminare:
 {
   "_id": "string",
   "name": "string",
-  "olfactory_group": "string|null"
+  "olfactory_group": "string"
 }
 ```
 
@@ -243,7 +244,7 @@ Descrizione dei campi principali:
 | ----------------- | ---------------------------------------------------------- |
 | `_id`             | Identificativo tecnico della nota, ad esempio `note_musk`  |
 | `name`            | Nome leggibile della nota                                  |
-| `olfactory_group` | Gruppo olfattivo della nota, se disponibile                |
+| `olfactory_group` | Gruppo olfattivo della nota                                |
 
 Le note derivano dalle colonne:
 
@@ -255,7 +256,7 @@ Base
 
 Dall’analisi sono state rilevate 1671 note distinte considerando insieme note di testa, cuore e fondo.
 
-Il campo `olfactory_group` è un campo di arricchimento opzionale. Permette di usare la collection `notes` come vocabolario controllato arricchito, utile per filtri, aggregazioni e ricerca di profumi simili.
+Il campo `olfactory_group` è un campo di arricchimento valorizzato tramite supporto AI e controllo manuale. Permette di usare la collection `notes` come vocabolario controllato arricchito, utile per filtri, aggregazioni e ricerca di profumi simili. Quando una nota non è classificabile con sufficiente sicurezza, viene usato il valore di fallback `other`.
 
 ---
 
@@ -268,7 +269,8 @@ Schema logico preliminare:
 ```json
 {
   "_id": "string",
-  "name": "string"
+  "name": "string",
+  "color_hex": "string"
 }
 ```
 
@@ -284,6 +286,8 @@ mainaccord5
 
 Dall’analisi sono stati rilevati 84 accordi distinti.
 
+Il campo `color_hex` è un campo di arricchimento usato per associare un colore rappresentativo agli accordi principali, utile per la futura interfaccia utente e per la mini dashboard statistica. Il valore viene sempre valorizzato; quando non è possibile assegnare un colore specifico, viene usato il colore di fallback `#9E9E9E`.
+
 ---
 
 ## Collection `perfumers`
@@ -296,7 +300,7 @@ Schema logico preliminare:
 {
   "_id": "string",
   "name": "string",
-  "nationality": "string|null"
+  "nationality": "string"
 }
 ```
 
@@ -306,7 +310,7 @@ Descrizione dei campi principali:
 | ------------- | ------------------------------------------------------------------ |
 | `_id`         | Identificativo tecnico del profumiere, ad esempio `perfumer_name`  |
 | `name`        | Nome leggibile del profumiere                                      |
-| `nationality` | Nazionalità del profumiere, se disponibile                         |
+| `nationality` | Nazionalità descrittiva del profumiere                             |
 
 I profumieri derivano dalle colonne:
 
@@ -317,7 +321,7 @@ Perfumer2
 
 Il valore `unknown` non verrà considerato un profumiere valido e non genererà un documento nella collection `perfumers`.
 
-Il campo `nationality` è un campo di arricchimento opzionale. Può essere compilato con supporto di strumenti di intelligenza artificiale; se l’informazione non è disponibile o non è ritenuta sufficientemente affidabile, il valore resta `null`.
+Il campo `nationality` è un campo di arricchimento descrittivo. Può essere compilato con supporto di strumenti di intelligenza artificiale e controllo manuale; quando la nazionalità non è determinabile con sufficiente sicurezza, viene usato il valore di fallback `Unknown`.
 
 Se un profumo non ha profumieri noti, il campo `perfumer_ids` nella collection `perfumes` sarà un array vuoto.
 
@@ -364,6 +368,7 @@ Questa struttura consente di mantenere separate le entità principali del miniwo
 | `mainaccord4`  | `accords` e `perfumes.accord_ids`     |
 | `mainaccord5`  | `accords` e `perfumes.accord_ids`     |
 | arricchimento note | `notes.olfactory_group`           |
+| arricchimento accordi | `accords.color_hex`             |
 | arricchimento profumieri | `perfumers.nationality`      |
 
 ---
@@ -377,8 +382,9 @@ La scelta è motivata dal fatto che brand, note, accordi e profumieri possono co
 Inoltre, alcune collection collegate possono contenere metadati propri:
 
 * `brands` include il paese del brand;
-* `notes` include il gruppo olfattivo, quando disponibile;
-* `perfumers` include la nazionalità, quando disponibile.
+* `notes` include il gruppo olfattivo;
+* `accords` include il colore rappresentativo;
+* `perfumers` include la nazionalità descrittiva.
 
 La collection `perfumes` manterrà array di identificativi per rappresentare le relazioni molti-a-molti con note, accordi e profumieri.
 
@@ -393,7 +399,7 @@ L'uso del referencing giustifica la presenza di collection autonome anche quando
 * **modellazione più chiara del miniworld**, perché brand, note, accordi e profumieri sono rappresentati come entità autonome e non come semplici stringhe interne ai profumi;
 * **interrogabilità separata delle entità**, utile per cercare direttamente note, accordi, brand o profumieri senza dover scorrere l'intera collection `perfumes`;
 * **CRUD più coerenti sulle entità collegate**, perché una nota, un accordo, un brand o un profumiere possono essere creati, modificati o consultati nella rispettiva collection;
-* **estendibilità del modello**, perché collection inizialmente semplici possono essere arricchite con nuovi attributi, ad esempio `olfactory_group` per le note e `nationality` per i profumieri;
+* **estendibilità del modello**, perché collection inizialmente semplici possono essere arricchite con nuovi attributi, ad esempio `olfactory_group` per le note, `color_hex` per gli accordi e `nationality` per i profumieri;
 * **supporto a query multi-collection**, tramite `$lookup`, necessario per recuperare il dettaglio completo dei profumi e per dimostrare collegamenti tra collection;
 * **supporto a filtri, aggregazioni e dashboard**, usando sia gli identificativi presenti in `perfumes` sia i metadati salvati nelle collection collegate;
 * **controllo dei valori ammessi**, perché collection come `notes` e `accords` possono funzionare da vocabolari controllati: un profumo dovrebbe poter referenziare solo note e accordi già presenti nelle rispettive collection.
@@ -406,7 +412,7 @@ Il referencing introduce anche alcuni svantaggi rispetto a un modello completame
 * **necessità di controlli applicativi sui riferimenti**, poiché MongoDB non impone automaticamente vincoli di foreign key tra collection;
 * **query di dettaglio più complesse**, perché per ottenere un profumo completo con brand, note, accordi e profumieri è necessario usare una o più operazioni `$lookup`;
 * **possibile costo prestazionale aggiuntivo** nelle query che devono unire più collection, da mitigare con indici adeguati e query progettate correttamente;
-* **riduzione della ridondanza non sempre significativa**, perché gli identificativi delle entità collegate devono comunque essere ripetuti nei documenti della collection `perfumes`.
+* **presenza comunque di una certa ridondanza**, perché gli identificativi delle entità collegate devono essere ripetuti nei documenti della collection `perfumes`.
 
 Nel contesto di ScentBase, questi svantaggi sono considerati accettabili perché il progetto richiede una modellazione multi-collection, query tra collection, operazioni CRUD coerenti e analisi basate su entità riutilizzabili del miniworld.
 
@@ -425,8 +431,9 @@ A livello di modellazione si prevedono le seguenti scelte:
 | `Rating Value` con virgola decimale | convertire in numero float                 |
 | `Rating Count`                      | convertire o mantenere come numero intero  |
 | note vuote o non valide             | ignorare nella trasformazione              |
-| `olfactory_group` non disponibile   | salvare `null`                             |
-| `nationality` non disponibile o non affidabile | salvare `null`                  |
+| `olfactory_group` non determinabile | salvare `other`                            |
+| `color_hex` non specifico            | salvare `#9E9E9E`                          |
+| `nationality` non determinabile con sufficiente sicurezza | salvare `Unknown`         |
 
 ---
 

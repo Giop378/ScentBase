@@ -4,6 +4,6 @@
   "fields": {
     "_id": "string",
     "name": "string",
-    "olfactory_group": "string|null"
+    "olfactory_group": "string"
   }
 }
