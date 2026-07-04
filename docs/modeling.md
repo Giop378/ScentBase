@@ -386,6 +386,30 @@ Questa soluzione distingue gli identificativi tecnici dai valori leggibili, mant
 
 L’embedding completo dei documenti collegati non viene adottato per le entità principali, perché renderebbe più difficile mantenere separati e riutilizzabili brand, note, accordi e profumieri.
 
+### Vantaggi del referencing
+
+L'uso del referencing giustifica la presenza di collection autonome anche quando alcune di esse contengono pochi campi. I principali vantaggi sono:
+
+* **modellazione più chiara del miniworld**, perché brand, note, accordi e profumieri sono rappresentati come entità autonome e non come semplici stringhe interne ai profumi;
+* **interrogabilità separata delle entità**, utile per cercare direttamente note, accordi, brand o profumieri senza dover scorrere l'intera collection `perfumes`;
+* **CRUD più coerenti sulle entità collegate**, perché una nota, un accordo, un brand o un profumiere possono essere creati, modificati o consultati nella rispettiva collection;
+* **estendibilità del modello**, perché collection inizialmente semplici possono essere arricchite con nuovi attributi, ad esempio `olfactory_group` per le note e `nationality` per i profumieri;
+* **supporto a query multi-collection**, tramite `$lookup`, necessario per recuperare il dettaglio completo dei profumi e per dimostrare collegamenti tra collection;
+* **supporto a filtri, aggregazioni e dashboard**, usando sia gli identificativi presenti in `perfumes` sia i metadati salvati nelle collection collegate;
+* **controllo dei valori ammessi**, perché collection come `notes` e `accords` possono funzionare da vocabolari controllati: un profumo dovrebbe poter referenziare solo note e accordi già presenti nelle rispettive collection.
+
+### Svantaggi del referencing
+
+Il referencing introduce anche alcuni svantaggi rispetto a un modello completamente embedded:
+
+* **maggiore complessità di importazione**, perché lo script deve creare prima le entità collegate e poi salvare in `perfumes` i relativi identificativi;
+* **necessità di controlli applicativi sui riferimenti**, poiché MongoDB non impone automaticamente vincoli di foreign key tra collection;
+* **query di dettaglio più complesse**, perché per ottenere un profumo completo con brand, note, accordi e profumieri è necessario usare una o più operazioni `$lookup`;
+* **possibile costo prestazionale aggiuntivo** nelle query che devono unire più collection, da mitigare con indici adeguati e query progettate correttamente;
+* **riduzione della ridondanza non sempre significativa**, perché gli identificativi delle entità collegate devono comunque essere ripetuti nei documenti della collection `perfumes`.
+
+Nel contesto di ScentBase, questi svantaggi sono considerati accettabili perché il progetto richiede una modellazione multi-collection, query tra collection, operazioni CRUD coerenti e analisi basate su entità riutilizzabili del miniworld.
+
 ---
 
 ## Gestione dei valori mancanti
