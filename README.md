@@ -8,11 +8,12 @@ Progetto NoSQL classico basato su MongoDB.
 
 ## Obiettivo
 
-Il progetto ha l’obiettivo di realizzare una proof of concept per importare, modellare e interrogare un dataset pubblico relativo a profumi e fragranze.
+Il progetto ha l’obiettivo di realizzare una proof of concept per importare, modellare e interrogare un dataset relativo a profumi e fragranze.
 
 Il sistema prevede:
 
 * modellazione dei dati in collection MongoDB;
+* pipeline ETL per trasformare il dataset in documenti JSON;
 * operazioni CRUD;
 * query di ricerca e aggregazione;
 * JOIN tra collection tramite `$lookup`;
@@ -22,21 +23,23 @@ Il sistema prevede:
 ## Struttura del progetto
 
 ```text
+.github/              Template per issue e pull request
 backend/              Backend FastAPI
 frontend/             Interfaccia utente minimale
-db/schema/            Schemi preliminari delle collection MongoDB
-scripts/              Script di pulizia, trasformazione e importazione dati
-queries/              Query MongoDB e aggregation pipeline
 benchmarks/results/   Risultati dei benchmark
-data/raw/             Dataset originale
-data/processed/       Dati trasformati dagli script
-docs/modeling.md      Modellazione documentale preliminare
-docs/report/          Documentazione finale del progetto
+data/raw/             Dataset sorgente
+data/enrichment/      Valori distinti e mapping di arricchimento
+data/processed/       Documenti JSON generati dalla trasformazione
+db/schema/            Schemi preliminari delle collection MongoDB
+docs/modeling.md      Scelte di modellazione documentale
+docs/etl.md           Pipeline di estrazione, arricchimento e trasformazione
+queries/              Query MongoDB e aggregation pipeline
+scripts/              Script di estrazione e trasformazione dati
 ```
 
 ## Modellazione dati
 
-La modellazione documentale preliminare è descritta nel file:
+La modellazione documentale è descritta nel file:
 
 ```text
 docs/modeling.md
@@ -60,29 +63,76 @@ Gli schemi preliminari delle collection sono disponibili nella cartella:
 db/schema/
 ```
 
-Gli schemi descrivono la struttura iniziale dei documenti MongoDB e saranno usati come riferimento per le successive fasi di trasformazione, importazione, query e sviluppo dell’applicazione.
+Gli schemi descrivono la struttura dei documenti MongoDB e sono usati come riferimento per trasformazione, importazione, query e sviluppo dell’applicazione.
 
 ## Dataset
 
 Il dataset principale previsto per il progetto è:
 
 ```text
-fra_cleaned.csv
+data/raw/fra_cleaned.csv
 ```
 
 Il file contiene dati relativi a profumi, brand, paese del brand, genere, rating, numero di valutazioni, anno, note olfattive, profumieri e accordi principali.
 
-Il dataset completo può essere collocato localmente nella cartella:
+## Pipeline ETL
+
+La pipeline di estrazione, arricchimento e trasformazione è descritta nel file:
 
 ```text
-data/raw/
+docs/etl.md
 ```
 
-I dati trasformati dagli script saranno salvati in:
+Gli script principali sono:
+
+```text
+scripts/extract_distinct_values.py
+scripts/transform_dataset.py
+```
+
+Il primo script estrae note, accordi e profumieri distinti dal dataset e salva i risultati in:
+
+```text
+data/enrichment/
+```
+
+Il secondo script valida i mapping di arricchimento, applica il mapping canonico, controlla gli identificativi generati e produce i documenti JSON finali in:
 
 ```text
 data/processed/
 ```
+
+File JSON generati:
+
+```text
+data/processed/perfumes.json
+data/processed/brands.json
+data/processed/notes.json
+data/processed/accords.json
+data/processed/perfumers.json
+```
+
+## Esecuzione della pipeline ETL
+
+Dopo aver predisposto il dataset in `data/raw/fra_cleaned.csv`, eseguire:
+
+```bash
+python scripts/extract_distinct_values.py
+```
+
+Poi eseguire la trasformazione:
+
+```bash
+python scripts/transform_dataset.py
+```
+
+La trasformazione verifica, tra le altre cose:
+
+* corrispondenza tra valori distinti del dataset e mapping di arricchimento;
+* assenza di chiavi mancanti, chiavi extra e valori non validi nei mapping;
+* collisioni di `_id` dopo la normalizzazione tecnica;
+* unicità degli `_id` finali;
+* presenza e unicità di `source_url` per i profumi importati dal dataset.
 
 ## Avvio MongoDB con Docker
 
@@ -134,8 +184,10 @@ Il file `.env` viene usato solo in locale e non deve essere caricato nel reposit
 
 Setup iniziale del repository completato.
 
-La struttura base del progetto è stata predisposta e MongoDB è avviabile localmente tramite Docker.
+MongoDB è avviabile localmente tramite Docker.
 
-È stata definita la modellazione documentale preliminare del database MongoDB, con le collection principali, i collegamenti tramite riferimenti, le scelte di modellazione e gli schemi preliminari in `db/schema/`.
+La modellazione documentale è stata definita in `docs/modeling.md`, con le collection principali, i collegamenti tramite riferimenti, la gestione degli identificativi, i campi di arricchimento e le scelte di modellazione.
 
-Le prossime attività riguarderanno l’implementazione degli script di pulizia, trasformazione e importazione del dataset.
+La pipeline ETL è stata implementata con script per estrazione dei valori distinti, validazione dei mapping di arricchimento, controllo delle collisioni e generazione dei file JSON in `data/processed/`.
+
+Le prossime attività riguarderanno l’importazione dei documenti in MongoDB, la definizione delle query, l’aggiunta degli indici, i benchmark e lo sviluppo delle funzionalità applicative.

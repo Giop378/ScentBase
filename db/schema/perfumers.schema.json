@@ -4,6 +4,6 @@
   "fields": {
     "_id": "string",
     "name": "string",
-    "nationality": "string|null"
+    "nationality": "string"
   }
 }
