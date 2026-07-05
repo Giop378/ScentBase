@@ -2020,14 +2020,14 @@
     "nationality": "French"
   },
   {
-    "_id": "perfumer_jean_charles_mignon",
-    "name": "jean charles mignon",
-    "nationality": "French"
-  },
-  {
     "_id": "perfumer_jean_claude_delville",
     "name": "jean claude delville",
     "nationality": "Belgian"
+  },
+  {
+    "_id": "perfumer_jean_francois_latty",
+    "name": "jean françois latty",
+    "nationality": "French"
   },
   {
     "_id": "perfumer_jean_guichard",
@@ -2052,6 +2052,11 @@
   {
     "_id": "perfumer_jean_niel",
     "name": "jean niel",
+    "nationality": "French"
+  },
+  {
+    "_id": "perfumer_jean_charles_mignon",
+    "name": "jean-charles mignon",
     "nationality": "French"
   },
   {
@@ -2092,11 +2097,6 @@
   {
     "_id": "perfumer_jean_francois_laporte",
     "name": "jean-francois laporte",
-    "nationality": "French"
-  },
-  {
-    "_id": "perfumer_jean_francois_latty",
-    "name": "jean-francois latty",
     "nationality": "French"
   },
   {

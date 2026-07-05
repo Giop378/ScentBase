@@ -27,13 +27,21 @@ Prima di generare gli output, lo script valida i mapping generati con supporto A
 - controlla che i valori di `note_olfactory_groups.json` appartengano ai gruppi ammessi;
 - controlla che i valori di `accord_colors.json` siano nel formato `#RRGGBB`;
 - controlla che `perfumer_nationalities.json` non contenga valori nulli o vuoti;
+- controlla un eventuale mapping canonico in `canonical_names.json`;
+- controlla collisioni di `_id` all'interno di ogni singola collection;
+- controlla che gli `_id` finali dei documenti generati siano univoci;
 - blocca la trasformazione se trova chiavi mancanti, chiavi extra, valori nulli,
-  duplicati normalizzati o valori non validi.
+  duplicati normalizzati, valori non validi, collisioni di `_id` non risolte o
+  identificativi duplicati nei documenti finali.
 
 Per scelta progettuale non vengono usati fallback automatici durante la trasformazione:
 i mapping devono contenere tutti e soli i valori distinti estratti dal dataset. Eventuali
 casi incerti devono essere gestiti direttamente nei mapping AI con valori espliciti come
 `other`, `#9E9E9E` o `Unknown`.
+
+Il mapping canonico viene applicato dopo la validazione dei mapping AI. Serve solo per
+accorpare manualmente varianti dello stesso nome, senza fare rilevamento automatico di
+somiglianza tra stringhe e senza confrontare valori appartenenti a collection diverse.
 """
 
 from __future__ import annotations
@@ -45,7 +53,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Callable, Iterable, NamedTuple
 
@@ -56,6 +64,15 @@ DEFAULT_OUTPUT_DIR = Path("data/processed")
 NOTE_COLUMNS = ("Top", "Middle", "Base")
 ACCORD_COLUMNS = ("mainaccord1", "mainaccord2", "mainaccord3", "mainaccord4", "mainaccord5")
 PERFUMER_COLUMNS = ("Perfumer1", "Perfumer2")
+
+CANONICAL_MAPPING_FILENAME = "canonical_names.json"
+CANONICAL_COLLECTIONS = ("brands", "notes", "accords", "perfumers")
+COLLECTION_ID_PREFIXES = {
+    "brands": "brand",
+    "notes": "note",
+    "accords": "accord",
+    "perfumers": "perfumer",
+}
 
 CSV_MISSING_VALUES = {"", "nan", "none", "null", "n/a", "na", "unknown", "-"}
 MAPPING_MISSING_VALUES = {"", "nan", "none", "null", "n/a", "na", "-"}
@@ -98,6 +115,14 @@ class MappingData(NamedTuple):
     original_keys_by_normalized_key: dict[str, str]
     invalid_values: dict[str, str]
     duplicate_normalized_keys: dict[str, list[str]]
+
+
+class CanonicalNamesData(NamedTuple):
+    """Contiene il mapping manuale dei nomi canonici per collection."""
+
+    values_by_collection: dict[str, dict[str, str]]
+    aliases_count_by_collection: dict[str, int]
+    source_path: Path | None
 
 
 class MappingValidationError(ValueError):
@@ -422,6 +447,208 @@ def validate_mapping(
         )
 
 
+def load_canonical_names(
+    path: Path,
+    *,
+    expected_values_by_collection: dict[str, list[str]],
+) -> CanonicalNamesData:
+    """
+    Carica il mapping canonico manuale degli alias.
+
+    Il file è opzionale e deve avere questa struttura:
+
+    {
+      "brands": {},
+      "notes": {
+        "Variante del dataset": "Nome canonico presente nel dataset"
+      },
+      "accords": {},
+      "perfumers": {}
+    }
+
+    Regole applicate:
+    - il mapping canonico viene applicato dopo i mapping AI;
+    - le collection valide sono solo brands, notes, accords e perfumers;
+    - le chiavi devono essere valori realmente presenti nel dataset;
+    - i valori canonici devono essere valori realmente presenti nella stessa collection;
+    - non viene fatta somiglianza automatica tra stringhe;
+    - non vengono confrontati valori appartenenti a collection diverse.
+    """
+    values_by_collection: dict[str, dict[str, str]] = {collection: {} for collection in CANONICAL_COLLECTIONS}
+    aliases_count_by_collection: dict[str, int] = {collection: 0 for collection in CANONICAL_COLLECTIONS}
+
+    if not path.exists():
+        print(f"Canonical names mapping not found: {path}")
+        print("  No canonical aliases applied.")
+        return CanonicalNamesData(values_by_collection, aliases_count_by_collection, None)
+
+    with path.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    if not isinstance(data, dict):
+        raise ValueError(f"Mapping canonico non valido: {path}. Il contenuto deve essere un oggetto JSON.")
+
+    extra_collections = sorted(set(data) - set(CANONICAL_COLLECTIONS))
+    if extra_collections:
+        raise MappingValidationError(
+            f"Mapping canonico non valido: collection non ammesse: {format_preview(extra_collections)}. "
+            f"Collection ammesse: {', '.join(CANONICAL_COLLECTIONS)}."
+        )
+
+    invalid_entries: list[str] = []
+
+    for collection in CANONICAL_COLLECTIONS:
+        raw_mapping = data.get(collection, {})
+        if not isinstance(raw_mapping, dict):
+            raise ValueError(f"Mapping canonico non valido: '{collection}' deve essere un oggetto JSON.")
+
+        expected_values = expected_values_by_collection[collection]
+        expected_by_normalized = {normalize_lookup_key(value): value for value in expected_values}
+
+        for raw_key, raw_canonical_value in raw_mapping.items():
+            key = clean_text(raw_key)
+            canonical_value = clean_text(raw_canonical_value)
+            key_norm = normalize_lookup_key(key)
+            canonical_norm = normalize_lookup_key(canonical_value)
+
+            if is_mapping_missing(key) or is_mapping_missing(canonical_value):
+                invalid_entries.append(f"{collection}: {key!r} -> {canonical_value!r} (chiave o valore vuoto)")
+                continue
+
+            if key_norm not in expected_by_normalized:
+                invalid_entries.append(f"{collection}: {key!r} -> {canonical_value!r} (chiave non presente nel dataset)")
+                continue
+
+            if canonical_norm not in expected_by_normalized:
+                invalid_entries.append(
+                    f"{collection}: {key!r} -> {canonical_value!r} (nome canonico non presente nel dataset)"
+                )
+                continue
+
+            canonical_from_dataset = expected_by_normalized[canonical_norm]
+            values_by_collection[collection][key_norm] = canonical_from_dataset
+
+            if key_norm != canonical_norm:
+                aliases_count_by_collection[collection] += 1
+
+    if invalid_entries:
+        print("Canonical names mapping check:")
+        print(f"  Invalid entries: {len(invalid_entries)}")
+        print(f"  Invalid preview: {format_preview(invalid_entries)}")
+        raise MappingValidationError(
+            "Mapping canonico non coerente con il dataset: le chiavi e i valori canonici "
+            "devono appartenere alla stessa collection e devono essere presenti tra i valori distinti del dataset."
+        )
+
+    print("Canonical names mapping check:")
+    print(f"  Source file: {path}")
+    for collection in CANONICAL_COLLECTIONS:
+        print(f"  {collection} aliases: {aliases_count_by_collection[collection]}")
+
+    return CanonicalNamesData(values_by_collection, aliases_count_by_collection, path)
+
+
+def get_canonical_name(collection: str, value: object, canonical_names: CanonicalNamesData) -> str:
+    """Restituisce il nome canonico manuale, oppure il valore pulito originale."""
+    clean_value = clean_text(value)
+    return canonical_names.values_by_collection[collection].get(normalize_lookup_key(clean_value), clean_value)
+
+
+def validate_id_collisions(
+    *,
+    collection: str,
+    expected_values: list[str],
+    canonical_names: CanonicalNamesData,
+) -> None:
+    """
+    Controlla collisioni di `_id` dentro una singola collection dopo il mapping canonico.
+
+    Una collisione è considerata risolta solo quando i valori coinvolti sono stati mappati
+    manualmente verso lo stesso nome canonico. Se due nomi canonici diversi generano lo
+    stesso `_id`, la trasformazione viene bloccata.
+    """
+    prefix = COLLECTION_ID_PREFIXES[collection]
+    id_to_canonical_names: dict[str, set[str]] = defaultdict(set)
+    id_to_pairs: dict[str, list[tuple[str, str]]] = defaultdict(list)
+
+    for original_value in expected_values:
+        canonical_value = get_canonical_name(collection, original_value, canonical_names)
+        generated_id = make_id(prefix, canonical_value)
+        id_to_canonical_names[generated_id].add(canonical_value)
+        id_to_pairs[generated_id].append((original_value, canonical_value))
+
+    unresolved_collisions = {
+        generated_id: pairs
+        for generated_id, pairs in id_to_pairs.items()
+        if len(id_to_canonical_names[generated_id]) > 1
+    }
+
+    canonical_values_count = len({normalize_lookup_key(get_canonical_name(collection, value, canonical_names)) for value in expected_values})
+
+    print(f"{collection.capitalize()} id collision check:")
+    print(f"  Distinct values from dataset: {len(expected_values)}")
+    print(f"  Canonical values after manual mapping: {canonical_values_count}")
+    print(f"  Generated ids: {len(id_to_pairs)}")
+    print(f"  Manual aliases applied: {canonical_names.aliases_count_by_collection[collection]}")
+    print(f"  Unresolved id collisions: {len(unresolved_collisions)}")
+
+    if unresolved_collisions:
+        preview: list[str] = []
+        for generated_id, pairs in unresolved_collisions.items():
+            pair_text = "; ".join(f"{original!r} -> {canonical!r}" for original, canonical in pairs)
+            preview.append(f"{generated_id}: {pair_text}")
+        print(f"  Collision preview: {format_preview(preview, limit=10)}")
+        raise MappingValidationError(
+            f"Collisioni di _id non risolte nella collection '{collection}'. "
+            f"Aggiornare {CANONICAL_MAPPING_FILENAME} scegliendo manualmente il nome canonico corretto."
+        )
+
+
+def validate_unique_document_ids(collection_name: str, documents: list[dict[str, Any]]) -> None:
+    """
+    Verifica che gli `_id` dei documenti finali generati siano univoci.
+
+    Questo controllo viene eseguito dopo la costruzione dei documenti e prima della
+    scrittura dei file JSON. Serve soprattutto per intercettare eventuali duplicati nella
+    collection `perfumes`, il cui identificativo è generato tramite hash dell'URL sorgente,
+    e per rendere esplicita la verifica anche sulle collection collegate.
+    """
+    ids_by_value: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    missing_id_documents = 0
+
+    for document in documents:
+        document_id = document.get("_id")
+        if is_mapping_missing(document_id):
+            missing_id_documents += 1
+            continue
+        ids_by_value[str(document_id)].append(document)
+
+    duplicate_ids = {
+        document_id: duplicate_documents
+        for document_id, duplicate_documents in ids_by_value.items()
+        if len(duplicate_documents) > 1
+    }
+
+    print(f"{collection_name} final _id uniqueness check:")
+    print(f"  Documents: {len(documents)}")
+    print(f"  Unique _id values: {len(ids_by_value)}")
+    print(f"  Duplicate _id values: {len(duplicate_ids)}")
+    print(f"  Documents without valid _id: {missing_id_documents}")
+
+    if duplicate_ids:
+        preview: list[str] = []
+        for document_id, duplicate_documents in duplicate_ids.items():
+            names = [clean_text(document.get("name", "")) for document in duplicate_documents[:5]]
+            preview.append(f"{document_id}: {names}")
+        print(f"  Duplicate preview: {format_preview(preview, limit=10)}")
+
+    if duplicate_ids or missing_id_documents:
+        raise MappingValidationError(
+            f"Identificativi finali non validi nella collection '{collection_name}': "
+            "sono presenti `_id` duplicati o documenti senza `_id` valido."
+        )
+
+
 def write_json(path: Path, documents: Iterable[dict[str, Any]]) -> None:
     """Scrive una lista di documenti JSON con indentazione leggibile."""
     with path.open("w", encoding="utf-8") as file:
@@ -469,6 +696,24 @@ def main() -> None:
     validate_mapping(label="Perfumers", expected_values=expected_perfumers, mapping=perfumer_nationalities)
     print_value_count("Perfumers with Unknown nationality", perfumer_nationalities.values, UNKNOWN_NATIONALITY)
 
+    expected_values_by_collection = {
+        "brands": sorted_distinct_values(rows, ("Brand",), list_fields=False),
+        "notes": expected_notes,
+        "accords": expected_accords,
+        "perfumers": expected_perfumers,
+    }
+    canonical_names = load_canonical_names(
+        args.enrichment_dir / CANONICAL_MAPPING_FILENAME,
+        expected_values_by_collection=expected_values_by_collection,
+    )
+
+    for collection, expected_values in expected_values_by_collection.items():
+        validate_id_collisions(
+            collection=collection,
+            expected_values=expected_values,
+            canonical_names=canonical_names,
+        )
+
     brands: dict[str, dict[str, Any]] = {}
     notes: dict[str, dict[str, Any]] = {}
     accords: dict[str, dict[str, Any]] = {}
@@ -477,13 +722,14 @@ def main() -> None:
 
     for row in rows:
         perfume_name = clean_text(row.get("Perfume", ""))
-        brand_name = clean_text(row.get("Brand", ""))
+        raw_brand_name = clean_text(row.get("Brand", ""))
         country = clean_text(row.get("Country", "")) if not is_csv_missing(row.get("Country")) else None
         source_url = clean_text(row.get("url", ""))
 
-        if is_csv_missing(perfume_name) or is_csv_missing(brand_name):
+        if is_csv_missing(perfume_name) or is_csv_missing(raw_brand_name):
             continue
 
+        brand_name = get_canonical_name("brands", raw_brand_name, canonical_names)
         brand_id = make_id("brand", brand_name)
         brands.setdefault(
             brand_id,
@@ -505,7 +751,8 @@ def main() -> None:
         }
 
         for column, target_list in note_ids_by_column.items():
-            for note_name in split_list_field(row.get(column)):
+            for raw_note_name in split_list_field(row.get(column)):
+                note_name = get_canonical_name("notes", raw_note_name, canonical_names)
                 note_id = make_id("note", note_name)
                 target_list.append(note_id)
                 notes.setdefault(
@@ -523,9 +770,10 @@ def main() -> None:
 
         accord_ids: list[str] = []
         for column in ACCORD_COLUMNS:
-            accord_name = clean_text(row.get(column, ""))
-            if is_csv_missing(accord_name):
+            raw_accord_name = clean_text(row.get(column, ""))
+            if is_csv_missing(raw_accord_name):
                 continue
+            accord_name = get_canonical_name("accords", raw_accord_name, canonical_names)
             accord_id = make_id("accord", accord_name)
             accord_ids.append(accord_id)
             accords.setdefault(
@@ -543,9 +791,10 @@ def main() -> None:
 
         perfumer_ids: list[str] = []
         for column in PERFUMER_COLUMNS:
-            perfumer_name = clean_text(row.get(column, ""))
-            if is_csv_missing(perfumer_name):
+            raw_perfumer_name = clean_text(row.get(column, ""))
+            if is_csv_missing(raw_perfumer_name):
                 continue
+            perfumer_name = get_canonical_name("perfumers", raw_perfumer_name, canonical_names)
             perfumer_id = make_id("perfumer", perfumer_name)
             perfumer_ids.append(perfumer_id)
             perfumers.setdefault(
@@ -581,10 +830,21 @@ def main() -> None:
         }
         perfumes.append(perfume)
 
-    write_json(args.output_dir / "brands.json", sorted(brands.values(), key=lambda item: item["name"].lower()))
-    write_json(args.output_dir / "notes.json", sorted(notes.values(), key=lambda item: item["name"].lower()))
-    write_json(args.output_dir / "accords.json", sorted(accords.values(), key=lambda item: item["name"].lower()))
-    write_json(args.output_dir / "perfumers.json", sorted(perfumers.values(), key=lambda item: item["name"].lower()))
+    brand_documents = sorted(brands.values(), key=lambda item: item["name"].lower())
+    note_documents = sorted(notes.values(), key=lambda item: item["name"].lower())
+    accord_documents = sorted(accords.values(), key=lambda item: item["name"].lower())
+    perfumer_documents = sorted(perfumers.values(), key=lambda item: item["name"].lower())
+
+    validate_unique_document_ids("perfumes", perfumes)
+    validate_unique_document_ids("brands", brand_documents)
+    validate_unique_document_ids("notes", note_documents)
+    validate_unique_document_ids("accords", accord_documents)
+    validate_unique_document_ids("perfumers", perfumer_documents)
+
+    write_json(args.output_dir / "brands.json", brand_documents)
+    write_json(args.output_dir / "notes.json", note_documents)
+    write_json(args.output_dir / "accords.json", accord_documents)
+    write_json(args.output_dir / "perfumers.json", perfumer_documents)
     write_json(args.output_dir / "perfumes.json", perfumes)
 
     notes_other_count = sum(1 for item in notes.values() if item["olfactory_group"] == OTHER_OLFACTORY_GROUP)
@@ -603,6 +863,10 @@ def main() -> None:
     print(f"Notes classified as other: {notes_other_count}")
     print(f"Accords using default color #9E9E9E: {accords_default_color_count}")
     print(f"Perfumers with Unknown nationality: {perfumers_unknown_count}")
+    print(f"Canonical brand aliases applied: {canonical_names.aliases_count_by_collection['brands']}")
+    print(f"Canonical note aliases applied: {canonical_names.aliases_count_by_collection['notes']}")
+    print(f"Canonical accord aliases applied: {canonical_names.aliases_count_by_collection['accords']}")
+    print(f"Canonical perfumer aliases applied: {canonical_names.aliases_count_by_collection['perfumers']}")
     print(f"Output directory: {args.output_dir}")
 
 
