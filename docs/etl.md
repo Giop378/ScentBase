@@ -17,6 +17,9 @@ data/
   raw/
     fra_cleaned.csv
   enrichment/
+    distinct_notes.txt
+    distinct_accords.txt
+    distinct_perfumers.txt
     note_olfactory_groups.json
     accord_colors.json
     perfumer_nationalities.json
@@ -196,16 +199,22 @@ Il campo `source_url` viene conservato nel documento `perfumes` come riferimento
 
 ---
 
-## Controlli su identificativi e URL sorgente
+## Controlli finali sui documenti generati
 
 Prima di scrivere i file JSON finali, lo script verifica:
 
 * unicità degli `_id` finali in ogni collection;
 * assenza di documenti senza `_id` valido;
 * presenza di `source_url` per ogni profumo importato dal dataset;
-* unicità di `source_url` nella collection `perfumes`.
+* unicità di `source_url` nella collection `perfumes`;
+* validità dei campi strutturali dei profumi, in particolare `name`, `brand_id` e `gender`;
+* presenza degli array di riferimenti come array, anche quando vuoti;
+* assenza di valori vuoti/non validi negli array di riferimenti;
+* validità dei riferimenti da `perfumes` verso `brands`, `notes`, `accords` e `perfumers`.
 
 Il controllo su `source_url` riguarda solo i dati importati dal CSV. Per futuri profumi inseriti manualmente tramite CRUD, `source_url` potrà essere opzionale e l'identificativo sarà generato dal backend applicativo.
+
+Gli array di riferimenti non vengono salvati come `null`: se un profumo non ha note di testa, accordi o profumieri noti, il relativo campo viene salvato come array vuoto.
 
 ---
 
@@ -213,9 +222,9 @@ Il controllo su `source_url` riguarda solo i dati importati dal CSV. Per futuri 
 
 Durante la trasformazione vengono applicate le seguenti operazioni:
 
-* conversione del rating in numero decimale;
-* conversione del numero di voti in intero;
-* conversione dell'anno in intero quando disponibile;
+* conversione del rating in numero decimale, oppure `null` se mancante o non valido;
+* conversione del numero di voti in intero, oppure `null` se mancante o non valido;
+* conversione dell'anno in intero, oppure `null` se mancante o non valido;
 * normalizzazione del genere in minuscolo;
 * estrazione delle liste di note da `Top`, `Middle`, `Base`;
 * creazione di `top_note_ids`, `middle_note_ids`, `base_note_ids`;
@@ -242,9 +251,72 @@ I file sono pensati per essere usati nella successiva fase di importazione in Mo
 
 ---
 
-## Conteggi sintetici attesi
+## Ultima esecuzione verificata
 
-Dopo la trasformazione, i conteggi attesi sono indicativamente:
+La pipeline è stata eseguita sul dataset completo `data/raw/fra_cleaned.csv` usando encoding `cp1252`.
+
+### Estrazione valori distinti
+
+| Elemento estratto | Valori distinti |
+| --- | ---: |
+| Note | 1671 |
+| Accordi | 84 |
+| Profumieri | 909 |
+
+### Validazione dei mapping
+
+| Mapping | Valori attesi | Chiavi mapping | Mancanti | Extra | Valori invalidi | Duplicati normalizzati |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Note | 1671 | 1671 | 0 | 0 | 0 | 0 |
+| Accordi | 84 | 84 | 0 | 0 | 0 | 0 |
+| Profumieri | 909 | 909 | 0 | 0 | 0 | 0 |
+
+Valori di fallback controllati rilevati nei mapping:
+
+| Campo | Valore di fallback | Occorrenze |
+| --- | --- | ---: |
+| `notes.olfactory_group` | `other` | 82 |
+| `accords.color_hex` | `#9E9E9E` | 0 |
+| `perfumers.nationality` | `Unknown` | 379 |
+
+### Mapping canonico e collisioni
+
+| Collection | Valori distinti dataset | Valori canonici | ID generati | Alias manuali | Collisioni non risolte |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `brands` | 1060 | 1060 | 1060 | 0 | 0 |
+| `notes` | 1671 | 1668 | 1668 | 3 | 0 |
+| `accords` | 84 | 84 | 84 | 0 | 0 |
+| `perfumers` | 909 | 905 | 905 | 4 | 0 |
+
+### Controlli finali sui documenti generati
+
+| Collection | Documenti | ID univoci | ID duplicati | Documenti senza ID valido |
+| --- | ---: | ---: | ---: | ---: |
+| `perfumes` | 24063 | 24063 | 0 | 0 |
+| `brands` | 1060 | 1060 | 0 | 0 |
+| `notes` | 1668 | 1668 | 0 | 0 |
+| `accords` | 84 | 84 | 0 | 0 |
+| `perfumers` | 905 | 905 | 0 | 0 |
+
+Per la collection `perfumes` è stato verificato anche il campo `source_url`:
+
+| Controllo | Risultato |
+| --- | ---: |
+| Documenti `perfumes` | 24063 |
+| `source_url` univoci | 24063 |
+| `source_url` duplicati | 0 |
+| Documenti senza `source_url` valido | 0 |
+
+Sono stati inoltre verificati i campi strutturali dei profumi e i riferimenti verso le collection collegate:
+
+| Controllo | Risultato |
+| --- | ---: |
+| Documenti `perfumes` controllati per campi strutturali | 24063 |
+| Documenti `perfumes` con campi strutturali non validi | 0 |
+| Documenti `perfumes` controllati per riferimenti | 24063 |
+| Riferimenti non validi verso collection collegate | 0 |
+
+### Conteggi finali generati
 
 | Collection | Documenti generati |
 | --- | ---: |
@@ -253,6 +325,8 @@ Dopo la trasformazione, i conteggi attesi sono indicativamente:
 | `notes` | 1668 |
 | `accords` | 84 |
 | `perfumers` | 905 |
+
+Il conteggio `Unknown` dei profumieri è pari a 379 nella validazione del mapping sui valori distinti originali e pari a 378 nei documenti finali generati. La differenza dipende dall'applicazione del mapping canonico, che riduce i profumieri distinti da 909 a 905 tramite alias manuali.
 
 I conteggi possono cambiare solo se vengono modificati dataset sorgente, mapping canonico o regole di trasformazione.
 

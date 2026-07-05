@@ -108,7 +108,7 @@ Schema logico:
 ```json
 {
   "_id": "string",
-  "source_url": "string",
+  "source_url": "string|null",
   "name": "string",
   "brand_id": "string",
   "gender": "string",
@@ -129,21 +129,23 @@ Campi principali:
 | Campo | Descrizione |
 | --- | --- |
 | `_id` | Identificativo tecnico del profumo |
-| `source_url` | URL originale del record importato dal dataset |
+| `source_url` | URL originale del record importato dal dataset, obbligatorio per i dati importati e opzionale per inserimenti manuali futuri |
 | `name` | Nome leggibile del profumo |
 | `brand_id` | Riferimento alla collection `brands` |
 | `gender` | Genere del profumo |
 | `rating` | Rating medio convertito in numero |
 | `votes` | Numero di valutazioni |
 | `year` | Anno di rilascio, se disponibile |
-| `top_note_ids` | Note di testa |
-| `middle_note_ids` | Note di cuore |
-| `base_note_ids` | Note di fondo |
+| `top_note_ids` | Note di testa, come array di riferimenti |
+| `middle_note_ids` | Note di cuore, come array di riferimenti |
+| `base_note_ids` | Note di fondo, come array di riferimenti |
 | `all_note_ids` | Unione delle note di testa, cuore e fondo |
-| `accord_ids` | Accordi principali |
-| `perfumer_ids` | Profumieri associati |
+| `accord_ids` | Accordi principali, come array di riferimenti |
+| `perfumer_ids` | Profumieri associati, come array di riferimenti |
 
 Il campo `all_note_ids` viene introdotto per semplificare le query basate sulle note e la ricerca di profumi simili.
+
+I campi contenenti riferimenti multipli sono sempre rappresentati come array. Se un'informazione non è disponibile, ad esempio note di testa, accordi o profumieri, viene usato un array vuoto invece di `null`.
 
 Per i profumi importati dal dataset, `source_url` è obbligatorio e viene usato come riferimento stabile al record originale. L'identificativo tecnico dei profumi importati viene generato a partire da questo URL, perché il nome del profumo non è completamente univoco.
 
@@ -286,6 +288,8 @@ Le collection sono collegate tramite identificativi condivisi.
 
 Questa struttura consente di mantenere separate le entità principali del miniworld e di implementare query con `$lookup` tra più collection.
 
+Poiché MongoDB non impone automaticamente vincoli di foreign key tra collection, la coerenza dei riferimenti viene verificata a livello applicativo durante la pipeline ETL.
+
 ---
 
 ## Mapping CSV → MongoDB
@@ -358,13 +362,17 @@ Nel contesto di ScentBase questi svantaggi sono considerati accettabili, perché
 | `Rating Count` mancante/non valido | salvare `null` |
 | `Perfumer1 = unknown` | non creare un documento in `perfumers` |
 | `Perfumer2` mancante | ignorare il valore |
+| note di testa/cuore/fondo mancanti | salvare array vuoto nel relativo campo |
 | accordi mancanti | non aggiungere riferimenti in `accord_ids` |
+| profumieri mancanti o non noti | salvare `perfumer_ids` come array vuoto |
 | note vuote o non valide | ignorare nella trasformazione |
 | `olfactory_group` non determinabile | salvare `other` |
 | `color_hex` non specifico | salvare `#9E9E9E` |
 | `nationality` non determinabile | salvare `Unknown` |
 
 Per i campi di arricchimento si evita l'uso di valori nulli, preferendo valori controllati e documentati.
+
+Per i campi array si evita l'uso di `null`: l'assenza di valori collegati viene rappresentata tramite array vuoti.
 
 ---
 

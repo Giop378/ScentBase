@@ -31,10 +31,12 @@ Prima di generare gli output, lo script valida i mapping generati con supporto A
 - controlla collisioni di `_id` all'interno di ogni singola collection;
 - controlla che gli `_id` finali dei documenti generati siano univoci;
 - controlla che `source_url` sia presente e univoco per i profumi importati dal dataset;
+- controlla che i campi strutturali dei profumi siano validi, inclusi `name`,
+  `brand_id`, `gender` e gli array di riferimenti;
 - blocca la trasformazione se trova chiavi mancanti, chiavi extra, valori nulli,
   duplicati normalizzati, valori non validi, collisioni di `_id` non risolte,
-  identificativi duplicati nei documenti finali oppure `source_url` mancanti/duplicati
-  nei profumi importati.
+  identificativi duplicati nei documenti finali, `source_url` mancanti/duplicati
+  oppure campi strutturali non validi nei profumi importati.
 
 Per scelta progettuale non vengono usati fallback automatici durante la trasformazione:
 i mapping devono contenere tutti e soli i valori distinti estratti dal dataset. Eventuali
@@ -83,6 +85,15 @@ HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 DEFAULT_ACCORD_COLOR = "#9E9E9E"
 UNKNOWN_NATIONALITY = "Unknown"
 OTHER_OLFACTORY_GROUP = "other"
+ALLOWED_GENDERS = {"men", "women", "unisex"}
+PERFUME_ARRAY_FIELDS = (
+    "top_note_ids",
+    "middle_note_ids",
+    "base_note_ids",
+    "all_note_ids",
+    "accord_ids",
+    "perfumer_ids",
+)
 
 ALLOWED_OLFACTORY_GROUPS = {
     "citrus",
@@ -702,6 +713,105 @@ def validate_unique_source_urls(documents: list[dict[str, Any]]) -> None:
             "sono presenti URL duplicati o profumi importati senza source_url."
         )
 
+
+def validate_perfume_required_fields(documents: list[dict[str, Any]]) -> None:
+    """
+    Verifica che i campi strutturali dei profumi siano valorizzati correttamente.
+
+    Gli array di riferimenti non devono essere `null`: quando un profumo non ha note,
+    accordi o profumieri noti, viene usato un array vuoto. Il campo `gender` deve
+    appartenere ai valori ammessi dal dataset importato.
+    """
+    invalid_documents: list[str] = []
+
+    for document in documents:
+        document_id = clean_text(document.get("_id", "")) or "<missing _id>"
+
+        if is_mapping_missing(document.get("name")):
+            invalid_documents.append(f"{document_id}: name mancante")
+
+        if is_mapping_missing(document.get("brand_id")):
+            invalid_documents.append(f"{document_id}: brand_id mancante")
+
+        gender = clean_text(document.get("gender", "")).lower()
+        if gender not in ALLOWED_GENDERS:
+            invalid_documents.append(f"{document_id}: gender non valido ({gender!r})")
+
+        for field in PERFUME_ARRAY_FIELDS:
+            value = document.get(field)
+            if not isinstance(value, list):
+                invalid_documents.append(f"{document_id}: {field} non è un array")
+                continue
+
+            invalid_items = [item for item in value if is_mapping_missing(item)]
+            if invalid_items:
+                invalid_documents.append(f"{document_id}: {field} contiene valori vuoti o non validi")
+
+    print("perfumes required fields check:")
+    print(f"  Documents checked: {len(documents)}")
+    print(f"  Invalid documents: {len(invalid_documents)}")
+
+    if invalid_documents:
+        print(f"  Invalid preview: {format_preview(invalid_documents, limit=10)}")
+        raise MappingValidationError(
+            "Campi strutturali non validi nella collection 'perfumes': "
+            "verificare name, brand_id, gender e array di riferimenti."
+        )
+
+
+def validate_perfume_references(
+    perfumes: list[dict[str, Any]],
+    *,
+    brand_documents: list[dict[str, Any]],
+    note_documents: list[dict[str, Any]],
+    accord_documents: list[dict[str, Any]],
+    perfumer_documents: list[dict[str, Any]],
+) -> None:
+    """
+    Verifica che i riferimenti presenti in `perfumes` puntino a documenti esistenti.
+
+    MongoDB non applica vincoli di foreign key tra collection. Questo controllo rende
+    quindi esplicita, nella pipeline ETL, la coerenza dei riferimenti generati verso
+    `brands`, `notes`, `accords` e `perfumers`.
+    """
+    brand_ids = {document["_id"] for document in brand_documents}
+    note_ids = {document["_id"] for document in note_documents}
+    accord_ids = {document["_id"] for document in accord_documents}
+    perfumer_ids = {document["_id"] for document in perfumer_documents}
+
+    invalid_references: list[str] = []
+
+    for perfume in perfumes:
+        perfume_id = clean_text(perfume.get("_id", "")) or "<missing _id>"
+
+        brand_id = perfume.get("brand_id")
+        if brand_id not in brand_ids:
+            invalid_references.append(f"{perfume_id}: brand_id non trovato ({brand_id!r})")
+
+        for field in ("top_note_ids", "middle_note_ids", "base_note_ids", "all_note_ids"):
+            for note_id in perfume.get(field, []):
+                if note_id not in note_ids:
+                    invalid_references.append(f"{perfume_id}: {field} contiene nota non trovata ({note_id!r})")
+
+        for accord_id in perfume.get("accord_ids", []):
+            if accord_id not in accord_ids:
+                invalid_references.append(f"{perfume_id}: accord_id non trovato ({accord_id!r})")
+
+        for perfumer_id in perfume.get("perfumer_ids", []):
+            if perfumer_id not in perfumer_ids:
+                invalid_references.append(f"{perfume_id}: perfumer_id non trovato ({perfumer_id!r})")
+
+    print("perfumes references check:")
+    print(f"  Documents checked: {len(perfumes)}")
+    print(f"  Invalid references: {len(invalid_references)}")
+
+    if invalid_references:
+        print(f"  Invalid reference preview: {format_preview(invalid_references, limit=10)}")
+        raise MappingValidationError(
+            "Riferimenti non validi nella collection 'perfumes': alcuni identificativi "
+            "non puntano a documenti esistenti nelle collection collegate."
+        )
+
 def write_json(path: Path, documents: Iterable[dict[str, Any]]) -> None:
     """Scrive una lista di documenti JSON con indentazione leggibile."""
     with path.open("w", encoding="utf-8") as file:
@@ -890,10 +1000,18 @@ def main() -> None:
 
     validate_unique_document_ids("perfumes", perfumes)
     validate_unique_source_urls(perfumes)
+    validate_perfume_required_fields(perfumes)
     validate_unique_document_ids("brands", brand_documents)
     validate_unique_document_ids("notes", note_documents)
     validate_unique_document_ids("accords", accord_documents)
     validate_unique_document_ids("perfumers", perfumer_documents)
+    validate_perfume_references(
+        perfumes,
+        brand_documents=brand_documents,
+        note_documents=note_documents,
+        accord_documents=accord_documents,
+        perfumer_documents=perfumer_documents,
+    )
 
     write_json(args.output_dir / "brands.json", brand_documents)
     write_json(args.output_dir / "notes.json", note_documents)
