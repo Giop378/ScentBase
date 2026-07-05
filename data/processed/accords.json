@@ -1,0 +1,422 @@
+[
+  {
+    "_id": "accord_alcohol",
+    "name": "alcohol",
+    "color_hex": "#DCE7F2"
+  },
+  {
+    "_id": "accord_aldehydic",
+    "name": "aldehydic",
+    "color_hex": "#E6EAF2"
+  },
+  {
+    "_id": "accord_almond",
+    "name": "almond",
+    "color_hex": "#D9B38C"
+  },
+  {
+    "_id": "accord_amber",
+    "name": "amber",
+    "color_hex": "#C9822B"
+  },
+  {
+    "_id": "accord_animalic",
+    "name": "animalic",
+    "color_hex": "#6D4C41"
+  },
+  {
+    "_id": "accord_anis",
+    "name": "anis",
+    "color_hex": "#B7D987"
+  },
+  {
+    "_id": "accord_aquatic",
+    "name": "aquatic",
+    "color_hex": "#4FC3F7"
+  },
+  {
+    "_id": "accord_aromatic",
+    "name": "aromatic",
+    "color_hex": "#6FA36F"
+  },
+  {
+    "_id": "accord_asphault",
+    "name": "asphault",
+    "color_hex": "#4A4A4A"
+  },
+  {
+    "_id": "accord_balsamic",
+    "name": "balsamic",
+    "color_hex": "#A66A2C"
+  },
+  {
+    "_id": "accord_beeswax",
+    "name": "beeswax",
+    "color_hex": "#D9A441"
+  },
+  {
+    "_id": "accord_bitter",
+    "name": "bitter",
+    "color_hex": "#8D6E63"
+  },
+  {
+    "_id": "accord_brown_scotch_tape",
+    "name": "brown scotch tape",
+    "color_hex": "#B8743A"
+  },
+  {
+    "_id": "accord_cacao",
+    "name": "cacao",
+    "color_hex": "#6B3E26"
+  },
+  {
+    "_id": "accord_camphor",
+    "name": "camphor",
+    "color_hex": "#A7D8D8"
+  },
+  {
+    "_id": "accord_cannabis",
+    "name": "cannabis",
+    "color_hex": "#4F8A3D"
+  },
+  {
+    "_id": "accord_caramel",
+    "name": "caramel",
+    "color_hex": "#C98236"
+  },
+  {
+    "_id": "accord_champagne",
+    "name": "champagne",
+    "color_hex": "#F7E7A1"
+  },
+  {
+    "_id": "accord_cherry",
+    "name": "cherry",
+    "color_hex": "#C62828"
+  },
+  {
+    "_id": "accord_chocolate",
+    "name": "chocolate",
+    "color_hex": "#5D4037"
+  },
+  {
+    "_id": "accord_cinnamon",
+    "name": "cinnamon",
+    "color_hex": "#B5522B"
+  },
+  {
+    "_id": "accord_citrus",
+    "name": "citrus",
+    "color_hex": "#F4C542"
+  },
+  {
+    "_id": "accord_clay",
+    "name": "clay",
+    "color_hex": "#A98263"
+  },
+  {
+    "_id": "accord_coca_cola",
+    "name": "coca-cola",
+    "color_hex": "#5A2D2D"
+  },
+  {
+    "_id": "accord_coconut",
+    "name": "coconut",
+    "color_hex": "#F3E5C4"
+  },
+  {
+    "_id": "accord_coffee",
+    "name": "coffee",
+    "color_hex": "#6F4E37"
+  },
+  {
+    "_id": "accord_conifer",
+    "name": "conifer",
+    "color_hex": "#2E7D32"
+  },
+  {
+    "_id": "accord_creamy",
+    "name": "creamy",
+    "color_hex": "#F2DDB6"
+  },
+  {
+    "_id": "accord_earthy",
+    "name": "earthy",
+    "color_hex": "#795548"
+  },
+  {
+    "_id": "accord_floral",
+    "name": "floral",
+    "color_hex": "#E58ABF"
+  },
+  {
+    "_id": "accord_fresh",
+    "name": "fresh",
+    "color_hex": "#81D4FA"
+  },
+  {
+    "_id": "accord_fresh_spicy",
+    "name": "fresh spicy",
+    "color_hex": "#D96C2C"
+  },
+  {
+    "_id": "accord_fruity",
+    "name": "fruity",
+    "color_hex": "#E91E63"
+  },
+  {
+    "_id": "accord_gasoline",
+    "name": "gasoline",
+    "color_hex": "#556070"
+  },
+  {
+    "_id": "accord_gourmand",
+    "name": "gourmand",
+    "color_hex": "#F1C6A8"
+  },
+  {
+    "_id": "accord_green",
+    "name": "green",
+    "color_hex": "#4CAF50"
+  },
+  {
+    "_id": "accord_herbal",
+    "name": "herbal",
+    "color_hex": "#6B8E23"
+  },
+  {
+    "_id": "accord_honey",
+    "name": "honey",
+    "color_hex": "#DDAA33"
+  },
+  {
+    "_id": "accord_hot_iron",
+    "name": "hot iron",
+    "color_hex": "#8A8D91"
+  },
+  {
+    "_id": "accord_industrial_glue",
+    "name": "industrial glue",
+    "color_hex": "#B0BEC5"
+  },
+  {
+    "_id": "accord_iris",
+    "name": "iris",
+    "color_hex": "#B39DDB"
+  },
+  {
+    "_id": "accord_lactonic",
+    "name": "lactonic",
+    "color_hex": "#F5E1C8"
+  },
+  {
+    "_id": "accord_lavender",
+    "name": "lavender",
+    "color_hex": "#9575CD"
+  },
+  {
+    "_id": "accord_leather",
+    "name": "leather",
+    "color_hex": "#6B3F24"
+  },
+  {
+    "_id": "accord_marine",
+    "name": "marine",
+    "color_hex": "#29B6F6"
+  },
+  {
+    "_id": "accord_metallic",
+    "name": "metallic",
+    "color_hex": "#8A9BA8"
+  },
+  {
+    "_id": "accord_mineral",
+    "name": "mineral",
+    "color_hex": "#B0AFA6"
+  },
+  {
+    "_id": "accord_mossy",
+    "name": "mossy",
+    "color_hex": "#5F7F3F"
+  },
+  {
+    "_id": "accord_musky",
+    "name": "musky",
+    "color_hex": "#D7CCC8"
+  },
+  {
+    "_id": "accord_nutty",
+    "name": "nutty",
+    "color_hex": "#A66A3F"
+  },
+  {
+    "_id": "accord_oily",
+    "name": "oily",
+    "color_hex": "#7A6A3A"
+  },
+  {
+    "_id": "accord_oriental",
+    "name": "oriental",
+    "color_hex": "#C06C3E"
+  },
+  {
+    "_id": "accord_oud",
+    "name": "oud",
+    "color_hex": "#4E342E"
+  },
+  {
+    "_id": "accord_ozonic",
+    "name": "ozonic",
+    "color_hex": "#B3E5FC"
+  },
+  {
+    "_id": "accord_paper",
+    "name": "paper",
+    "color_hex": "#E0D6C3"
+  },
+  {
+    "_id": "accord_patchouli",
+    "name": "patchouli",
+    "color_hex": "#5D4037"
+  },
+  {
+    "_id": "accord_plastic",
+    "name": "plastic",
+    "color_hex": "#C7D0D8"
+  },
+  {
+    "_id": "accord_powdery",
+    "name": "powdery",
+    "color_hex": "#E0D7C6"
+  },
+  {
+    "_id": "accord_rose",
+    "name": "rose",
+    "color_hex": "#E5739A"
+  },
+  {
+    "_id": "accord_rubber",
+    "name": "rubber",
+    "color_hex": "#303030"
+  },
+  {
+    "_id": "accord_rum",
+    "name": "rum",
+    "color_hex": "#9A5A24"
+  },
+  {
+    "_id": "accord_salty",
+    "name": "salty",
+    "color_hex": "#B2DFDB"
+  },
+  {
+    "_id": "accord_sand",
+    "name": "sand",
+    "color_hex": "#D7B56D"
+  },
+  {
+    "_id": "accord_savory",
+    "name": "savory",
+    "color_hex": "#9C7A3C"
+  },
+  {
+    "_id": "accord_smoky",
+    "name": "smoky",
+    "color_hex": "#555555"
+  },
+  {
+    "_id": "accord_soapy",
+    "name": "soapy",
+    "color_hex": "#DDEEF4"
+  },
+  {
+    "_id": "accord_soft_spicy",
+    "name": "soft spicy",
+    "color_hex": "#C77A4A"
+  },
+  {
+    "_id": "accord_sour",
+    "name": "sour",
+    "color_hex": "#C6D94C"
+  },
+  {
+    "_id": "accord_spicy",
+    "name": "spicy",
+    "color_hex": "#BF3A2B"
+  },
+  {
+    "_id": "accord_sweet",
+    "name": "sweet",
+    "color_hex": "#F6C1C8"
+  },
+  {
+    "_id": "accord_terpenic",
+    "name": "terpenic",
+    "color_hex": "#4DB6AC"
+  },
+  {
+    "_id": "accord_tobacco",
+    "name": "tobacco",
+    "color_hex": "#8D5A2B"
+  },
+  {
+    "_id": "accord_tropical",
+    "name": "tropical",
+    "color_hex": "#FFB74D"
+  },
+  {
+    "_id": "accord_tuberose",
+    "name": "tuberose",
+    "color_hex": "#F8BBD0"
+  },
+  {
+    "_id": "accord_vanilla",
+    "name": "vanilla",
+    "color_hex": "#F3E5AB"
+  },
+  {
+    "_id": "accord_vinyl",
+    "name": "vinyl",
+    "color_hex": "#4A4A4A"
+  },
+  {
+    "_id": "accord_violet",
+    "name": "violet",
+    "color_hex": "#8E7CC3"
+  },
+  {
+    "_id": "accord_vodka",
+    "name": "vodka",
+    "color_hex": "#DCEFF7"
+  },
+  {
+    "_id": "accord_warm_spicy",
+    "name": "warm spicy",
+    "color_hex": "#B75C2A"
+  },
+  {
+    "_id": "accord_whiskey",
+    "name": "whiskey",
+    "color_hex": "#B8792E"
+  },
+  {
+    "_id": "accord_white_floral",
+    "name": "white floral",
+    "color_hex": "#F8DCE8"
+  },
+  {
+    "_id": "accord_wine",
+    "name": "wine",
+    "color_hex": "#8E244D"
+  },
+  {
+    "_id": "accord_woody",
+    "name": "woody",
+    "color_hex": "#8B5A2B"
+  },
+  {
+    "_id": "accord_yellow_floral",
+    "name": "yellow floral",
+    "color_hex": "#F2CF5B"
+  }
+]
