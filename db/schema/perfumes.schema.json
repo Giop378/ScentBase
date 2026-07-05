@@ -3,7 +3,7 @@
   "description": "Collection principale dei profumi",
   "fields": {
     "_id": "string",
-    "source_url": "string",
+    "source_url": "string|null",
     "name": "string",
     "brand_id": "string",
     "gender": "string",

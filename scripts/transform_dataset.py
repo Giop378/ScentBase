@@ -30,9 +30,11 @@ Prima di generare gli output, lo script valida i mapping generati con supporto A
 - controlla un eventuale mapping canonico in `canonical_names.json`;
 - controlla collisioni di `_id` all'interno di ogni singola collection;
 - controlla che gli `_id` finali dei documenti generati siano univoci;
+- controlla che `source_url` sia presente e univoco per i profumi importati dal dataset;
 - blocca la trasformazione se trova chiavi mancanti, chiavi extra, valori nulli,
-  duplicati normalizzati, valori non validi, collisioni di `_id` non risolte o
-  identificativi duplicati nei documenti finali.
+  duplicati normalizzati, valori non validi, collisioni di `_id` non risolte,
+  identificativi duplicati nei documenti finali oppure `source_url` mancanti/duplicati
+  nei profumi importati.
 
 Per scelta progettuale non vengono usati fallback automatici durante la trasformazione:
 i mapping devono contenere tutti e soli i valori distinti estratti dal dataset. Eventuali
@@ -649,6 +651,57 @@ def validate_unique_document_ids(collection_name: str, documents: list[dict[str,
         )
 
 
+
+def validate_unique_source_urls(documents: list[dict[str, Any]]) -> None:
+    """
+    Verifica che `source_url` sia presente e univoco per i profumi importati dal dataset.
+
+    In questa issue la trasformazione riguarda solo record provenienti da `fra_cleaned.csv`,
+    quindi `source_url` viene trattato come riferimento obbligatorio al record originale.
+    Nei futuri inserimenti manuali tramite backend, invece, `source_url` potrà essere
+    opzionale e l'identificativo del profumo potrà essere generato dall'applicazione.
+    """
+    urls_by_value: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    missing_source_url_documents: list[str] = []
+
+    for document in documents:
+        source_url = clean_text(document.get("source_url", ""))
+        document_id = clean_text(document.get("_id", ""))
+
+        if is_csv_missing(source_url):
+            missing_source_url_documents.append(document_id or "<missing _id>")
+            continue
+
+        urls_by_value[source_url].append(document)
+
+    duplicate_urls = {
+        source_url: duplicate_documents
+        for source_url, duplicate_documents in urls_by_value.items()
+        if len(duplicate_documents) > 1
+    }
+
+    print("perfumes source_url uniqueness check:")
+    print(f"  Documents: {len(documents)}")
+    print(f"  Unique source_url values: {len(urls_by_value)}")
+    print(f"  Duplicate source_url values: {len(duplicate_urls)}")
+    print(f"  Documents without valid source_url: {len(missing_source_url_documents)}")
+
+    if duplicate_urls:
+        preview: list[str] = []
+        for source_url, duplicate_documents in duplicate_urls.items():
+            names = [clean_text(document.get("name", "")) for document in duplicate_documents[:5]]
+            preview.append(f"{source_url}: {names}")
+        print(f"  Duplicate source_url preview: {format_preview(preview, limit=10)}")
+
+    if missing_source_url_documents:
+        print(f"  Missing source_url document preview: {format_preview(missing_source_url_documents, limit=10)}")
+
+    if duplicate_urls or missing_source_url_documents:
+        raise MappingValidationError(
+            "source_url non valido nella collection 'perfumes': "
+            "sono presenti URL duplicati o profumi importati senza source_url."
+        )
+
 def write_json(path: Path, documents: Iterable[dict[str, Any]]) -> None:
     """Scrive una lista di documenti JSON con indentazione leggibile."""
     with path.open("w", encoding="utf-8") as file:
@@ -836,6 +889,7 @@ def main() -> None:
     perfumer_documents = sorted(perfumers.values(), key=lambda item: item["name"].lower())
 
     validate_unique_document_ids("perfumes", perfumes)
+    validate_unique_source_urls(perfumes)
     validate_unique_document_ids("brands", brand_documents)
     validate_unique_document_ids("notes", note_documents)
     validate_unique_document_ids("accords", accord_documents)
