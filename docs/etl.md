@@ -4,7 +4,7 @@
 
 Questo documento descrive la pipeline ETL usata per trasformare il dataset `fra_cleaned.csv` nei documenti JSON destinati alle collection MongoDB del progetto **ScentBase**.
 
-Il documento non contiene il log completo dell'esecuzione, ma raccoglie le scelte operative principali della fase di estrazione, arricchimento, validazione e trasformazione.
+Il documento non contiene il log completo di ogni esecuzione, ma raccoglie le scelte operative principali, i comandi usati e i risultati sintetici delle verifiche più rilevanti per le fasi di estrazione, trasformazione e caricamento.
 
 ---
 
@@ -34,6 +34,8 @@ data/
 scripts/
   extract_distinct_values.py
   transform_dataset.py
+  import_to_mongodb.py
+  verify_mongodb_import.py
 ```
 
 Ruolo delle cartelle:
@@ -97,6 +99,49 @@ perfumers.json
 
 ---
 
+### `import_to_mongodb.py`
+
+Lo script importa in MongoDB i file JSON generati dalla trasformazione.
+
+La connessione al database viene letta dalle variabili definite in `.env`:
+
+```text
+MONGO_URI
+MONGO_DATABASE
+```
+
+L'importazione avviene in ordine controllato:
+
+```text
+brands
+notes
+accords
+perfumers
+perfumes
+```
+
+La collection `perfumes` viene importata per ultima perché contiene riferimenti verso le collection collegate.
+
+Con l'opzione `--reset`, lo script elimina prima le collection target, permettendo di ricostruire il database locale da zero durante test e demo.
+
+---
+
+### `verify_mongodb_import.py`
+
+Lo script verifica che i dati importati in MongoDB siano coerenti con gli output della pipeline ETL.
+
+Controlli effettuati:
+
+* conteggio dei documenti importati per collection;
+* unicità degli `_id`;
+* presenza e unicità di `source_url` nella collection `perfumes`;
+* presenza degli array di riferimenti nei documenti `perfumes`;
+* validità dei riferimenti da `perfumes` verso `brands`, `notes`, `accords` e `perfumers`.
+
+Lo script termina con errore se almeno una verifica fallisce.
+
+---
+
 ## Comandi principali
 
 Estrarre i valori distinti:
@@ -109,6 +154,24 @@ Eseguire la trasformazione completa:
 
 ```bash
 python scripts/transform_dataset.py
+```
+
+Avviare MongoDB tramite Docker:
+
+```bash
+docker compose up -d
+```
+
+Importare i JSON trasformati in MongoDB:
+
+```bash
+python scripts/import_to_mongodb.py --reset
+```
+
+Verificare l'importazione in MongoDB:
+
+```bash
+python scripts/verify_mongodb_import.py
 ```
 
 ---
@@ -247,11 +310,11 @@ data/processed/accords.json
 data/processed/perfumers.json
 ```
 
-I file sono pensati per essere usati nella successiva fase di importazione in MongoDB.
+I file sono usati nella successiva fase di caricamento in MongoDB.
 
 ---
 
-## Ultima esecuzione verificata
+## Ultima esecuzione verificata della fase Extract/Transform
 
 La pipeline è stata eseguita sul dataset completo `data/raw/fra_cleaned.csv` usando encoding `cp1252`.
 
@@ -332,6 +395,112 @@ I conteggi possono cambiare solo se vengono modificati dataset sorgente, mapping
 
 ---
 
+## Load: importazione in MongoDB
+
+La fase di caricamento importa in MongoDB i file JSON generati in `data/processed/`.
+
+### File di input
+
+```text
+data/processed/brands.json
+data/processed/notes.json
+data/processed/accords.json
+data/processed/perfumers.json
+data/processed/perfumes.json
+```
+
+### Script utilizzati
+
+```text
+scripts/import_to_mongodb.py
+scripts/verify_mongodb_import.py
+```
+
+### Variabili di ambiente usate
+
+```text
+MONGO_URI
+MONGO_DATABASE
+```
+
+### Ordine di importazione
+
+| Ordine | Collection |
+| ---: | --- |
+| 1 | `brands` |
+| 2 | `notes` |
+| 3 | `accords` |
+| 4 | `perfumers` |
+| 5 | `perfumes` |
+
+La collection `perfumes` viene importata per ultima perché contiene riferimenti verso `brands`, `notes`, `accords` e `perfumers`.
+
+### Comandi principali
+
+Avviare MongoDB:
+
+```bash
+docker compose up -d
+```
+
+Importare i dati trasformati, resettando le collection target:
+
+```bash
+python scripts/import_to_mongodb.py --reset
+```
+
+Verificare l'importazione:
+
+```bash
+python scripts/verify_mongodb_import.py
+```
+
+### Controlli post-importazione
+
+Dopo il caricamento vengono verificati:
+
+* conteggio dei documenti importati;
+* unicità degli `_id`;
+* presenza e unicità di `source_url` in `perfumes`;
+* correttezza degli array di riferimenti nei documenti `perfumes`;
+* validità dei riferimenti da `perfumes` verso `brands`, `notes`, `accords` e `perfumers`.
+
+### Ultima esecuzione verificata della fase Load
+
+L'importazione è stata eseguita sul database MongoDB locale `scentbase`.
+
+Conteggi importati:
+
+| Collection | Documenti importati |
+| --- | ---: |
+| `perfumes` | 24063 |
+| `brands` | 1060 |
+| `notes` | 1668 |
+| `accords` | 84 |
+| `perfumers` | 905 |
+
+Controlli di verifica:
+
+| Controllo | Risultato |
+| --- | ---: |
+| `_id` duplicati in `perfumes` | 0 |
+| `_id` duplicati in `brands` | 0 |
+| `_id` duplicati in `notes` | 0 |
+| `_id` duplicati in `accords` | 0 |
+| `_id` duplicati in `perfumers` | 0 |
+| Documenti senza `_id` valido | 0 |
+| `source_url` duplicati in `perfumes` | 0 |
+| Documenti `perfumes` senza `source_url` valido | 0 |
+| Campi array non validi in `perfumes` | 0 |
+| Riferimenti non validi verso `brands` | 0 |
+| Riferimenti non validi verso `notes` | 0 |
+| Riferimenti non validi verso `accords` | 0 |
+| Riferimenti non validi verso `perfumers` | 0 |
+| Errori totali rilevati | 0 |
+
+La verifica è stata eseguita tramite `scripts/verify_mongodb_import.py` e si è conclusa con esito positivo.
+
+
 ## Uso dell'AI
 
 L'AI è stata usata come supporto per costruire i mapping di arricchimento:
@@ -348,4 +517,4 @@ I risultati generati con supporto AI non vengono accettati automaticamente: lo s
 
 `docs/modeling.md` descrive il modello dati e le scelte progettuali stabili.
 
-`docs/etl.md` descrive invece la pipeline con cui il dataset viene trasformato nei documenti coerenti con quel modello.
+`docs/etl.md` descrive invece la pipeline con cui il dataset viene trasformato nei documenti coerenti con quel modello e successivamente caricato nel database MongoDB locale.
