@@ -13,7 +13,7 @@ Il progetto ha l’obiettivo di realizzare una proof of concept per importare, m
 Il sistema prevede:
 
 * modellazione dei dati in collection MongoDB;
-* pipeline ETL per trasformare il dataset in documenti JSON;
+* pipeline ETL per trasformare il dataset in documenti JSON e importarli in MongoDB;
 * operazioni CRUD;
 * query di ricerca e aggregazione;
 * JOIN tra collection tramite `$lookup`;
@@ -32,9 +32,30 @@ data/enrichment/      Valori distinti e mapping di arricchimento
 data/processed/       Documenti JSON generati dalla trasformazione
 db/schema/            Schemi preliminari delle collection MongoDB
 docs/modeling.md      Scelte di modellazione documentale
-docs/etl.md           Pipeline di estrazione, arricchimento e trasformazione
+docs/etl.md           Pipeline di estrazione, trasformazione e caricamento
 queries/              Query MongoDB e aggregation pipeline
-scripts/              Script di estrazione e trasformazione dati
+scripts/              Script di estrazione, trasformazione, importazione e verifica
+```
+
+## Prerequisiti
+
+Per eseguire il progetto in locale sono necessari:
+
+* Python 3.11 o versione compatibile;
+* Docker e Docker Compose;
+* un ambiente Python locale, ad esempio Conda;
+* le dipendenze indicate in `requirements.txt`.
+
+Se si usa Conda, attivare prima l’ambiente dedicato:
+
+```bash
+conda activate bd2-scentbase
+```
+
+Installare poi le dipendenze Python:
+
+```bash
+pip install -r requirements.txt
 ```
 
 ## Modellazione dati
@@ -77,7 +98,7 @@ Il file contiene dati relativi a profumi, brand, paese del brand, genere, rating
 
 ## Pipeline ETL
 
-La pipeline di estrazione, arricchimento e trasformazione è descritta nel file:
+La pipeline di estrazione, arricchimento, trasformazione e caricamento è descritta nel file:
 
 ```text
 docs/etl.md
@@ -88,6 +109,8 @@ Gli script principali sono:
 ```text
 scripts/extract_distinct_values.py
 scripts/transform_dataset.py
+scripts/import_to_mongodb.py
+scripts/verify_mongodb_import.py
 ```
 
 Il primo script estrae note, accordi e profumieri distinti dal dataset e salva i risultati in:
@@ -102,7 +125,11 @@ Il secondo script valida i mapping di arricchimento, applica il mapping canonico
 data/processed/
 ```
 
-File JSON generati:
+Il terzo script importa in MongoDB i documenti JSON generati.
+
+Il quarto script verifica che l’importazione in MongoDB sia coerente, controllando conteggi, identificativi e riferimenti tra collection.
+
+File JSON generati dalla trasformazione:
 
 ```text
 data/processed/perfumes.json
@@ -114,7 +141,7 @@ data/processed/perfumers.json
 
 ## Esecuzione della pipeline ETL
 
-Dopo aver predisposto il dataset in `data/raw/fra_cleaned.csv`, eseguire:
+Dopo aver predisposto il dataset in `data/raw/fra_cleaned.csv`, eseguire l’estrazione dei valori distinti:
 
 ```bash
 python scripts/extract_distinct_values.py
@@ -132,7 +159,8 @@ La trasformazione verifica, tra le altre cose:
 * assenza di chiavi mancanti, chiavi extra e valori non validi nei mapping;
 * collisioni di `_id` dopo la normalizzazione tecnica;
 * unicità degli `_id` finali;
-* presenza e unicità di `source_url` per i profumi importati dal dataset.
+* presenza e unicità di `source_url` per i profumi importati dal dataset;
+* validità dei riferimenti verso le collection collegate.
 
 ## Avvio MongoDB con Docker
 
@@ -142,6 +170,12 @@ Creare un file `.env` a partire dal file di esempio:
 
 ```bash
 cp .env.example .env
+```
+
+Su PowerShell, in alternativa:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
 Avviare MongoDB:
@@ -174,11 +208,96 @@ Fermare MongoDB rimuovendo anche il volume dati:
 docker compose down -v
 ```
 
+## Importazione dati in MongoDB
+
+Dopo aver generato i file JSON in `data/processed/`, importare i dati in MongoDB con:
+
+```bash
+python scripts/import_to_mongodb.py --reset
+```
+
+L’opzione `--reset` elimina le collection target prima dell’importazione, permettendo di rigenerare il database locale da zero.
+
+L’ordine di importazione è:
+
+```text
+brands
+notes
+accords
+perfumers
+perfumes
+```
+
+La collection `perfumes` viene importata per ultima perché contiene riferimenti verso le altre collection.
+
+## Verifica importazione MongoDB
+
+Dopo l’importazione, verificare il caricamento con:
+
+```bash
+python scripts/verify_mongodb_import.py
+```
+
+La verifica controlla:
+
+* conteggio dei documenti importati per collection;
+* unicità degli `_id`;
+* presenza e unicità di `source_url` in `perfumes`;
+* validità degli array di riferimenti nei documenti `perfumes`;
+* validità dei riferimenti verso `brands`, `notes`, `accords` e `perfumers`.
+
+Conteggi attesi dopo l’importazione del dataset completo:
+
+```text
+perfumes: 24063
+brands: 1060
+notes: 1668
+accords: 84
+perfumers: 905
+```
+
+L’ultima verifica eseguita ha prodotto:
+
+```text
+Duplicate _id values: 0
+Duplicate source_url values: 0
+Invalid perfume array fields: 0
+Invalid brand references: 0
+Invalid note references: 0
+Invalid accord references: 0
+Invalid perfumer references: 0
+Total errors: 0
+```
+
+## Esecuzione completa da zero
+
+Per rigenerare i dati e caricarli in MongoDB da zero:
+
+```bash
+docker compose up -d
+pip install -r requirements.txt
+python scripts/extract_distinct_values.py
+python scripts/transform_dataset.py
+python scripts/import_to_mongodb.py --reset
+python scripts/verify_mongodb_import.py
+```
+
 ## File di configurazione
 
 Il file `.env.example` contiene variabili di ambiente di esempio.
 
 Il file `.env` viene usato solo in locale e non deve essere caricato nel repository.
+
+Variabili principali:
+
+```text
+MONGO_PORT
+MONGO_INITDB_ROOT_USERNAME
+MONGO_INITDB_ROOT_PASSWORD
+MONGO_INITDB_DATABASE
+MONGO_DATABASE
+MONGO_URI
+```
 
 ## Stato del progetto
 
@@ -190,4 +309,6 @@ La modellazione documentale è stata definita in `docs/modeling.md`, con le coll
 
 La pipeline ETL è stata implementata con script per estrazione dei valori distinti, validazione dei mapping di arricchimento, controllo delle collisioni e generazione dei file JSON in `data/processed/`.
 
-Le prossime attività riguarderanno l’importazione dei documenti in MongoDB, la definizione delle query, l’aggiunta degli indici, i benchmark e lo sviluppo delle funzionalità applicative.
+La fase di caricamento in MongoDB è stata implementata tramite script di importazione e verifica. I dati trasformati possono essere importati nel database locale e controllati tramite conteggi, unicità degli identificativi e validità dei riferimenti tra collection.
+
+Le prossime attività riguarderanno il backend FastAPI, le operazioni CRUD, le query di ricerca e aggregazione, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
