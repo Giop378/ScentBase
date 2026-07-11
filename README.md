@@ -269,9 +269,77 @@ Invalid perfumer references: 0
 Total errors: 0
 ```
 
+## Backend FastAPI
+
+Il progetto include un backend minimale sviluppato con FastAPI per esporre tramite API i dati importati in MongoDB.
+
+Prima di avviare il backend, assicurarsi che MongoDB sia in esecuzione e che i dati siano stati importati.
+
+Avviare MongoDB:
+
+```bash
+docker compose up -d
+```
+
+Installare le dipendenze Python:
+
+```bash
+pip install -r requirements.txt
+```
+
+Verificare che i dati siano presenti in MongoDB:
+
+```bash
+python scripts/verify_mongodb_import.py
+```
+
+Avviare il backend FastAPI:
+
+```bash
+uvicorn backend.app.main:app --reload
+```
+
+La documentazione interattiva Swagger è disponibile all’indirizzo:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Endpoint attualmente disponibili:
+
+| Metodo | Endpoint | Descrizione |
+| --- | --- | --- |
+| GET | `/` | Restituisce un messaggio base dell’API |
+| GET | `/health` | Verifica lo stato del backend e la connessione a MongoDB |
+| GET | `/collections/counts` | Restituisce i conteggi delle collection principali |
+| GET | `/perfumes` | Restituisce una lista paginata di profumi |
+| GET | `/perfumes/{perfume_id}` | Restituisce un profumo tramite `_id` |
+
+Esempi di test con `curl`:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/collections/counts
+curl "http://127.0.0.1:8000/perfumes?limit=5&skip=0"
+curl "http://127.0.0.1:8000/perfumes/<ID_REALE>"
+curl "http://127.0.0.1:8000/perfumes/not_existing_perfume"
+```
+
+L’endpoint `GET /perfumes` supporta una paginazione semplice tramite i parametri `limit` e `skip`.
+
+Esempio:
+
+```bash
+curl "http://127.0.0.1:8000/perfumes?limit=20&skip=0"
+```
+
+In questa fase gli endpoint restituiscono i riferimenti verso le collection collegate come identificativi, ad esempio `brand_id`, `all_note_ids`, `accord_ids` e `perfumer_ids`.
+
+L’espansione dei dati collegati tramite `$lookup` sarà implementata in una issue successiva dedicata alle query multi-collection.
+
 ## Esecuzione completa da zero
 
-Per rigenerare i dati e caricarli in MongoDB da zero:
+Per rigenerare i dati, caricarli in MongoDB e avviare il backend da zero:
 
 ```bash
 docker compose up -d
@@ -280,6 +348,7 @@ python scripts/extract_distinct_values.py
 python scripts/transform_dataset.py
 python scripts/import_to_mongodb.py --reset
 python scripts/verify_mongodb_import.py
+uvicorn backend.app.main:app --reload
 ```
 
 ## File di configurazione
@@ -311,4 +380,6 @@ La pipeline ETL è stata implementata con script per estrazione dei valori disti
 
 La fase di caricamento in MongoDB è stata implementata tramite script di importazione e verifica. I dati trasformati possono essere importati nel database locale e controllati tramite conteggi, unicità degli identificativi e validità dei riferimenti tra collection.
 
-Le prossime attività riguarderanno il backend FastAPI, le operazioni CRUD, le query di ricerca e aggregazione, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
+Il backend FastAPI base è stato implementato. L’applicazione espone endpoint per verificare lo stato della connessione a MongoDB, consultare i conteggi delle collection principali e leggere i profumi importati tramite API.
+
+Le prossime attività riguarderanno le operazioni CRUD, i filtri combinati avanzati, le query di ricerca e aggregazione, la ricerca di profumi simili, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
