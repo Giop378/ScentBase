@@ -271,7 +271,7 @@ Total errors: 0
 
 ## Backend FastAPI
 
-Il progetto include un backend minimale sviluppato con FastAPI per esporre tramite API i dati importati in MongoDB.
+Il progetto include un backend sviluppato con FastAPI per consultare e modificare i dati presenti in MongoDB.
 
 Prima di avviare il backend, assicurarsi che MongoDB sia in esecuzione e che i dati siano stati importati.
 
@@ -305,7 +305,7 @@ La documentazione interattiva Swagger è disponibile all’indirizzo:
 http://127.0.0.1:8000/docs
 ```
 
-Endpoint attualmente disponibili:
+### Endpoint disponibili
 
 | Metodo | Endpoint | Descrizione |
 | --- | --- | --- |
@@ -313,17 +313,10 @@ Endpoint attualmente disponibili:
 | GET | `/health` | Verifica lo stato del backend e la connessione a MongoDB |
 | GET | `/collections/counts` | Restituisce i conteggi delle collection principali |
 | GET | `/perfumes` | Restituisce una lista paginata di profumi |
+| POST | `/perfumes` | Crea un nuovo profumo |
 | GET | `/perfumes/{perfume_id}` | Restituisce un profumo tramite `_id` |
-
-Esempi di test con `curl`:
-
-```bash
-curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/collections/counts
-curl "http://127.0.0.1:8000/perfumes?limit=5&skip=0"
-curl "http://127.0.0.1:8000/perfumes/<ID_REALE>"
-curl "http://127.0.0.1:8000/perfumes/not_existing_perfume"
-```
+| PUT | `/perfumes/{perfume_id}` | Sostituisce i campi modificabili di un profumo esistente |
+| DELETE | `/perfumes/{perfume_id}` | Elimina un profumo esistente |
 
 L’endpoint `GET /perfumes` supporta una paginazione semplice tramite i parametri `limit` e `skip`.
 
@@ -333,9 +326,87 @@ Esempio:
 curl "http://127.0.0.1:8000/perfumes?limit=20&skip=0"
 ```
 
-In questa fase gli endpoint restituiscono i riferimenti verso le collection collegate come identificativi, ad esempio `brand_id`, `all_note_ids`, `accord_ids` e `perfumer_ids`.
+Gli endpoint restituiscono per ora i riferimenti verso le collection collegate come identificativi, ad esempio `brand_id`, `all_note_ids`, `accord_ids` e `perfumer_ids`.
 
 L’espansione dei dati collegati tramite `$lookup` sarà implementata in una issue successiva dedicata alle query multi-collection.
+
+### Operazioni CRUD sui profumi
+
+I payload ricevuti dagli endpoint `POST` e `PUT` vengono validati tramite modelli Pydantic.
+
+Per i profumi creati tramite API:
+
+* `_id` viene generato automaticamente dal backend con prefisso `manual_perfume_`;
+* `all_note_ids` viene calcolato automaticamente unendo `top_note_ids`, `middle_note_ids` e `base_note_ids`;
+* i riferimenti verso `brands`, `notes`, `accords` e `perfumers` devono puntare a documenti già esistenti;
+* gli identificativi duplicati negli array vengono rimossi mantenendo l’ordine;
+* `source_url` è opzionale, ma quando presente deve essere un URL valido e univoco;
+* `_id`, `all_note_ids` e i campi non previsti non possono essere impostati direttamente dal client.
+
+Per i profumi importati tramite ETL, `source_url` resta obbligatorio e non può essere rimosso o modificato tramite `PUT`, perché identifica la sorgente originale del record.
+
+L’endpoint `PUT` richiede il payload completo dei campi modificabili e non crea automaticamente un nuovo documento quando il profumo non esiste.
+
+L’eliminazione di un profumo non elimina brand, note, accordi o profumieri collegati, poiché tali documenti possono essere condivisi da più profumi.
+
+Esempio di payload valido:
+
+```json
+{
+  "name": "ScentBase CRUD Test",
+  "brand_id": "brand_example",
+  "gender": "unisex",
+  "rating": 4.2,
+  "votes": 10,
+  "year": 2026,
+  "top_note_ids": ["note_example"],
+  "middle_note_ids": [],
+  "base_note_ids": [],
+  "accord_ids": ["accord_example"],
+  "perfumer_ids": [],
+  "source_url": "https://example.com/scentbase-crud-test"
+}
+```
+
+Gli identificativi dell’esempio devono essere sostituiti con valori realmente presenti nelle rispettive collection.
+
+Principali codici di risposta:
+
+| Codice | Significato |
+| --- | --- |
+| `200` | Profumo letto o modificato correttamente |
+| `201` | Profumo creato correttamente |
+| `204` | Profumo eliminato correttamente |
+| `400` | Riferimenti inesistenti o dati incoerenti |
+| `404` | Profumo non trovato |
+| `409` | Conflitto di unicità, ad esempio `source_url` duplicato |
+| `422` | Payload non valido secondo gli schemi Pydantic |
+
+### Verifica manuale degli endpoint
+
+Gli endpoint possono essere verificati tramite Swagger UI oppure con `curl`.
+
+Esempi di lettura:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/collections/counts
+curl "http://127.0.0.1:8000/perfumes?limit=5&skip=0"
+curl "http://127.0.0.1:8000/perfumes/<ID_REALE>"
+curl "http://127.0.0.1:8000/perfumes/not_existing_perfume"
+```
+
+Per verificare la CRUD completa:
+
+1. creare un profumo sintetico con `POST /perfumes`, usando riferimenti reali;
+2. recuperarlo con `GET /perfumes/{perfume_id}`;
+3. modificarlo con `PUT /perfumes/{perfume_id}`;
+4. eliminarlo con `DELETE /perfumes/{perfume_id}`;
+5. verificare che una successiva lettura restituisca `404 Not Found`.
+
+Sono stati verificati anche i principali casi negativi: riferimento inesistente, genere o rating non valido, campo non previsto, profumo inesistente e `source_url` duplicato.
+
+Lo script `verify_mongodb_import.py` controlla i conteggi esatti del dataset ETL. Dopo i test CRUD è quindi necessario eliminare tutti i documenti sintetici prima di rieseguirlo.
 
 ## Esecuzione completa da zero
 
@@ -380,6 +451,8 @@ La pipeline ETL è stata implementata con script per estrazione dei valori disti
 
 La fase di caricamento in MongoDB è stata implementata tramite script di importazione e verifica. I dati trasformati possono essere importati nel database locale e controllati tramite conteggi, unicità degli identificativi e validità dei riferimenti tra collection.
 
-Il backend FastAPI base è stato implementato. L’applicazione espone endpoint per verificare lo stato della connessione a MongoDB, consultare i conteggi delle collection principali e leggere i profumi importati tramite API.
+Il backend FastAPI è stato implementato e collegato al database MongoDB. L’applicazione espone endpoint per verificare lo stato della connessione, consultare i conteggi delle collection e leggere i profumi importati tramite API.
 
-Le prossime attività riguarderanno le operazioni CRUD, i filtri combinati avanzati, le query di ricerca e aggregazione, la ricerca di profumi simili, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
+Le operazioni CRUD principali sulla collection `perfumes` sono state completate. Il backend consente la creazione, la modifica e l’eliminazione dei profumi, applicando validazione Pydantic, controllo dei riferimenti verso le collection collegate, generazione automatica di `_id` e `all_note_ids`, controllo di unicità di `source_url` e gestione degli errori HTTP principali.
+
+Le prossime attività riguarderanno i filtri combinati avanzati, le query di ricerca e aggregazione, la JOIN tramite `$lookup`, la ricerca di profumi simili, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
