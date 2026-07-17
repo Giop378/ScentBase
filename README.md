@@ -35,6 +35,8 @@ docs/modeling.md      Scelte di modellazione documentale
 docs/etl.md           Pipeline di estrazione, trasformazione e caricamento
 queries/              Query MongoDB e aggregation pipeline
 scripts/              Script di estrazione, trasformazione, importazione e verifica
+tests/                Test automatici di integrazione del backend
+pytest.ini            Configurazione di pytest
 ```
 
 ## Prerequisiti
@@ -312,19 +314,72 @@ http://127.0.0.1:8000/docs
 | GET | `/` | Restituisce un messaggio base dell’API |
 | GET | `/health` | Verifica lo stato del backend e la connessione a MongoDB |
 | GET | `/collections/counts` | Restituisce i conteggi delle collection principali |
-| GET | `/perfumes` | Restituisce una lista paginata di profumi |
+| GET | `/perfumes` | Ricerca e filtra i profumi con ordinamento e paginazione |
 | POST | `/perfumes` | Crea un nuovo profumo |
 | GET | `/perfumes/{perfume_id}` | Restituisce un profumo tramite `_id` |
 | PUT | `/perfumes/{perfume_id}` | Sostituisce i campi modificabili di un profumo esistente |
 | DELETE | `/perfumes/{perfume_id}` | Elimina un profumo esistente |
 
-L’endpoint `GET /perfumes` supporta una paginazione semplice tramite i parametri `limit` e `skip`.
+### Ricerca e filtri sui profumi
 
-Esempio:
+L’endpoint `GET /perfumes` supporta filtri singoli e combinati. Tutti i criteri specificati nella stessa richiesta vengono applicati con logica `AND`.
+
+Parametri disponibili:
+
+| Parametro | Tipo | Descrizione |
+| --- | --- | --- |
+| `name` | stringa | Ricerca parziale e case-insensitive per nome del profumo |
+| `brand` | stringa | Filtro per nome del brand |
+| `gender` | `men`, `women`, `unisex` | Filtro per genere |
+| `year_min` | intero | Anno minimo, incluso |
+| `year_max` | intero | Anno massimo, incluso |
+| `rating_min` | numero | Rating minimo, compreso tra `0` e `5` |
+| `rating_max` | numero | Rating massimo, compreso tra `0` e `5` |
+| `votes_min` | intero | Numero minimo di voti |
+| `note` | stringa | Filtro per nome di nota olfattiva |
+| `accord` | stringa | Filtro per nome di accordo |
+| `perfumer` | stringa | Filtro per nome del profumiere |
+| `sort_by` | `name`, `year`, `rating`, `votes` | Campo usato per l’ordinamento |
+| `sort_order` | `asc`, `desc` | Direzione dell’ordinamento |
+| `limit` | intero | Numero massimo di risultati, da `1` a `100` |
+| `skip` | intero | Numero di risultati da saltare |
+
+I filtri per brand, note, accordi e profumieri risolvono i nomi nelle rispettive collection e applicano poi gli identificativi ottenuti ai documenti `perfumes`.
+
+Esempi:
 
 ```bash
-curl "http://127.0.0.1:8000/perfumes?limit=20&skip=0"
+curl "http://127.0.0.1:8000/perfumes?name=vanilla"
 ```
+
+```bash
+curl "http://127.0.0.1:8000/perfumes?brand=Dior&gender=unisex"
+```
+
+```bash
+curl "http://127.0.0.1:8000/perfumes?note=Vanilla&rating_min=4&votes_min=100"
+```
+
+```bash
+curl "http://127.0.0.1:8000/perfumes?accord=woody&year_min=2000&year_max=2020&sort_by=rating&sort_order=desc&limit=20&skip=0"
+```
+
+La risposta mantiene la struttura paginata:
+
+```json
+{
+  "items": [],
+  "limit": 20,
+  "skip": 0,
+  "total": 0
+}
+```
+
+Il campo `total` rappresenta il numero complessivo di documenti che soddisfano i filtri prima dell’applicazione di `limit` e `skip`.
+
+Gli intervalli incoerenti, come `year_min` maggiore di `year_max`, restituiscono `400 Bad Request`. I valori non ammessi o fuori intervallo restituiscono `422`.
+
+La ricerca di un brand, una nota, un accordo o un profumiere non presente restituisce una lista vuota con stato `200 OK`.
 
 Gli endpoint restituiscono per ora i riferimenti verso le collection collegate come identificativi, ad esempio `brand_id`, `all_note_ids`, `accord_ids` e `perfumer_ids`.
 
@@ -377,16 +432,87 @@ Principali codici di risposta:
 | `200` | Profumo letto o modificato correttamente |
 | `201` | Profumo creato correttamente |
 | `204` | Profumo eliminato correttamente |
-| `400` | Riferimenti inesistenti o dati incoerenti |
+| `400` | Riferimenti inesistenti, intervalli incoerenti o dati non modificabili |
 | `404` | Profumo non trovato |
 | `409` | Conflitto di unicità, ad esempio `source_url` duplicato |
-| `422` | Payload non valido secondo gli schemi Pydantic |
+| `422` | Payload o parametro della query non valido |
+
+### Test automatici di integrazione
+
+Il backend dispone di test automatici eseguiti con `pytest` e `TestClient`.
+
+I test utilizzano un database MongoDB separato:
+
+```text
+scentbase_test
+```
+
+La configurazione dei test:
+
+* seleziona `scentbase_test` prima di importare l’applicazione FastAPI;
+* verifica che il nome del database termini con `_test`;
+* elimina un eventuale database di test precedente;
+* popola automaticamente le collection `brands`, `notes`, `accords`, `perfumers` e `perfumes` con dati sintetici;
+* esegue i test senza leggere o modificare il database principale `scentbase`;
+* elimina `scentbase_test` al termine della suite.
+
+Prima di eseguire i test, assicurarsi che MongoDB sia attivo:
+
+```bash
+docker compose up -d
+```
+
+Nel file `.env` devono essere presenti:
+
+```dotenv
+MONGO_DATABASE=scentbase
+MONGO_TEST_DATABASE=scentbase_test
+```
+
+`MONGO_DATABASE` deve rimanere impostata su `scentbase`: la suite seleziona autonomamente il database di test.
+
+Eseguire tutti i test dalla root del repository:
+
+```bash
+python -m pytest -v
+```
+
+La suite verifica:
+
+* filtri singoli e combinati;
+* ricerca parziale e case-insensitive;
+* trattamento sicuro dei caratteri usati nelle espressioni regolari;
+* ordinamento crescente e decrescente;
+* paginazione e calcolo di `total`;
+* riferimenti non presenti nelle collection collegate;
+* intervalli incoerenti e parametri non validi;
+* regressione minima degli endpoint di lettura e health check.
+
+I file principali sono:
+
+```text
+pytest.ini
+tests/conftest.py
+tests/test_perfume_filters.py
+```
 
 ### Verifica manuale degli endpoint
 
 Gli endpoint possono essere verificati tramite Swagger UI oppure con `curl`.
 
-Esempi di lettura:
+Dopo la suite automatica è sufficiente eseguire uno smoke test rappresentativo sul database completo:
+
+```bash
+curl "http://127.0.0.1:8000/perfumes?note=Vanilla&rating_min=4&sort_by=rating&sort_order=desc&limit=5"
+```
+
+Su PowerShell è preferibile usare:
+
+```powershell
+curl.exe "http://127.0.0.1:8000/perfumes?note=Vanilla&rating_min=4&sort_by=rating&sort_order=desc&limit=5"
+```
+
+Esempi aggiuntivi di lettura:
 
 ```bash
 curl http://127.0.0.1:8000/health
@@ -419,6 +545,7 @@ python scripts/extract_distinct_values.py
 python scripts/transform_dataset.py
 python scripts/import_to_mongodb.py --reset
 python scripts/verify_mongodb_import.py
+python -m pytest -v
 uvicorn backend.app.main:app --reload
 ```
 
@@ -436,6 +563,7 @@ MONGO_INITDB_ROOT_USERNAME
 MONGO_INITDB_ROOT_PASSWORD
 MONGO_INITDB_DATABASE
 MONGO_DATABASE
+MONGO_TEST_DATABASE
 MONGO_URI
 ```
 
@@ -455,4 +583,6 @@ Il backend FastAPI è stato implementato e collegato al database MongoDB. L’ap
 
 Le operazioni CRUD principali sulla collection `perfumes` sono state completate. Il backend consente la creazione, la modifica e l’eliminazione dei profumi, applicando validazione Pydantic, controllo dei riferimenti verso le collection collegate, generazione automatica di `_id` e `all_note_ids`, controllo di unicità di `source_url` e gestione degli errori HTTP principali.
 
-Le prossime attività riguarderanno i filtri combinati avanzati, le query di ricerca e aggregazione, la JOIN tramite `$lookup`, la ricerca di profumi simili, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
+La ricerca del catalogo supporta filtri singoli e combinati per nome, brand, genere, anno, rating, voti, note, accordi e profumieri, oltre a ordinamento e paginazione. La funzionalità è verificata tramite test automatici di integrazione eseguiti su un database MongoDB separato denominato `scentbase_test`.
+
+Le prossime attività riguarderanno le query di aggregazione, la JOIN tramite `$lookup`, la ricerca di profumi simili, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.

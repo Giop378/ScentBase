@@ -1,7 +1,8 @@
-"""Endpoint di lettura e CRUD per la collection MongoDB ``perfumes``.
+"""Endpoint di lettura, ricerca e CRUD per la collection MongoDB ``perfumes``.
 
-Il router mantiene gli endpoint di consultazione già presenti e aggiunge le
-operazioni di creazione, sostituzione ed eliminazione dei profumi.
+Il router espone gli endpoint di consultazione e le operazioni di creazione,
+sostituzione ed eliminazione dei profumi. L'endpoint ``GET /perfumes`` supporta
+inoltre filtri combinabili, ordinamento e paginazione.
 
 I riferimenti verso brand, note, accordi e profumieri vengono validati prima
 di scrivere nel database, perché MongoDB non applica automaticamente vincoli
@@ -10,11 +11,12 @@ di foreign key tra collection.
 
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
-from pymongo import ReturnDocument
+from pymongo import ASCENDING, DESCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from backend.app.database import get_database
@@ -26,10 +28,148 @@ router = APIRouter(prefix="/perfumes", tags=["perfumes"])
 
 MANUAL_PERFUME_ID_PREFIX = "manual_perfume_"
 
+SortField = Literal["name", "year", "rating", "votes"]
+SortOrder = Literal["asc", "desc"]
+GenderFilter = Literal["men", "women", "unisex"]
+
 
 def unique_preserve_order(values: list[str]) -> list[str]:
     """Rimuove eventuali duplicati mantenendo l'ordine originale."""
     return list(dict.fromkeys(values))
+
+
+def normalize_search_text(value: str, parameter_name: str) -> str:
+    """Normalizza un filtro testuale e rifiuta valori composti da soli spazi."""
+    normalized_value = value.strip()
+
+    if not normalized_value:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Query parameter '{parameter_name}' cannot be blank",
+        )
+
+    return normalized_value
+
+
+def partial_case_insensitive_match(value: str) -> dict[str, Any]:
+    """Costruisce una ricerca parziale case-insensitive sicura per MongoDB."""
+    return {
+        "$regex": re.escape(value),
+        "$options": "i",
+    }
+
+
+def find_reference_ids_by_name(
+    collection_name: str,
+    search_value: str,
+) -> list[str]:
+    """Trova gli ``_id`` i cui nomi corrispondono al filtro testuale.
+
+    La ricerca è parziale e case-insensitive. Un elenco vuoto viene mantenuto
+    nella query principale tramite ``$in: []``, producendo correttamente zero
+    risultati senza generare un errore HTTP.
+    """
+    db = get_database()
+    cursor = db[collection_name].find(
+        {"name": partial_case_insensitive_match(search_value)},
+        {"_id": 1},
+    )
+
+    return [document["_id"] for document in cursor]
+
+
+def build_perfume_search_query(
+    *,
+    name: str | None,
+    brand: str | None,
+    gender: GenderFilter | None,
+    year_min: int | None,
+    year_max: int | None,
+    rating_min: float | None,
+    rating_max: float | None,
+    votes_min: int | None,
+    note: str | None,
+    accord: str | None,
+    perfumer: str | None,
+) -> dict[str, Any]:
+    """Costruisce la query MongoDB applicando tutti i filtri con logica AND."""
+    query: dict[str, Any] = {}
+
+    if name is not None:
+        normalized_name = normalize_search_text(name, "name")
+        query["name"] = partial_case_insensitive_match(normalized_name)
+
+    if brand is not None:
+        normalized_brand = normalize_search_text(brand, "brand")
+        brand_ids = find_reference_ids_by_name("brands", normalized_brand)
+        query["brand_id"] = {"$in": brand_ids}
+
+    if gender is not None:
+        query["gender"] = gender
+
+    if year_min is not None or year_max is not None:
+        year_filter: dict[str, int] = {}
+        if year_min is not None:
+            year_filter["$gte"] = year_min
+        if year_max is not None:
+            year_filter["$lte"] = year_max
+        query["year"] = year_filter
+
+    if rating_min is not None or rating_max is not None:
+        rating_filter: dict[str, float] = {}
+        if rating_min is not None:
+            rating_filter["$gte"] = rating_min
+        if rating_max is not None:
+            rating_filter["$lte"] = rating_max
+        query["rating"] = rating_filter
+
+    if votes_min is not None:
+        query["votes"] = {"$gte": votes_min}
+
+    if note is not None:
+        normalized_note = normalize_search_text(note, "note")
+        note_ids = find_reference_ids_by_name("notes", normalized_note)
+        query["all_note_ids"] = {"$in": note_ids}
+
+    if accord is not None:
+        normalized_accord = normalize_search_text(accord, "accord")
+        accord_ids = find_reference_ids_by_name("accords", normalized_accord)
+        query["accord_ids"] = {"$in": accord_ids}
+
+    if perfumer is not None:
+        normalized_perfumer = normalize_search_text(perfumer, "perfumer")
+        perfumer_ids = find_reference_ids_by_name(
+            "perfumers",
+            normalized_perfumer,
+        )
+        query["perfumer_ids"] = {"$in": perfumer_ids}
+
+    return query
+
+
+def validate_search_ranges(
+    *,
+    year_min: int | None,
+    year_max: int | None,
+    rating_min: float | None,
+    rating_max: float | None,
+) -> None:
+    """Verifica la coerenza degli intervalli ricevuti nella query string."""
+    if year_min is not None and year_max is not None and year_min > year_max:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="year_min cannot be greater than year_max",
+        )
+
+    if (
+        rating_min is not None
+        and rating_max is not None
+        and rating_min > rating_max
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="rating_min cannot be greater than rating_max",
+        )
 
 
 def build_perfume_document(
@@ -201,21 +341,68 @@ def validate_imported_perfume_source_url(
 
 @router.get("")
 def get_perfumes(
+    name: str | None = Query(default=None, min_length=1, max_length=300),
+    brand: str | None = Query(default=None, min_length=1, max_length=300),
+    gender: GenderFilter | None = Query(default=None),
+    year_min: int | None = Query(default=None, ge=0, le=2100),
+    year_max: int | None = Query(default=None, ge=0, le=2100),
+    rating_min: float | None = Query(default=None, ge=0, le=5),
+    rating_max: float | None = Query(default=None, ge=0, le=5),
+    votes_min: int | None = Query(default=None, ge=0),
+    note: str | None = Query(default=None, min_length=1, max_length=300),
+    accord: str | None = Query(default=None, min_length=1, max_length=300),
+    perfumer: str | None = Query(default=None, min_length=1, max_length=300),
+    sort_by: SortField | None = Query(default=None),
+    sort_order: SortOrder = Query(default="asc"),
     limit: int = Query(default=20, ge=1, le=100),
     skip: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
-    """Restituisce una pagina di profumi ordinata per identificativo."""
+    """Restituisce profumi filtrati, ordinati e paginati.
+
+    Tutti i filtri specificati vengono combinati con logica AND. I filtri per
+    brand, nota, accordo e profumiere sono risolti attraverso le rispettive
+    collection, mantenendo nel risultato i riferimenti come identificativi.
+    """
+    validate_search_ranges(
+        year_min=year_min,
+        year_max=year_max,
+        rating_min=rating_min,
+        rating_max=rating_max,
+    )
+
+    query = build_perfume_search_query(
+        name=name,
+        brand=brand,
+        gender=gender,
+        year_min=year_min,
+        year_max=year_max,
+        rating_min=rating_min,
+        rating_max=rating_max,
+        votes_min=votes_min,
+        note=note,
+        accord=accord,
+        perfumer=perfumer,
+    )
+
     db = get_database()
     collection = db["perfumes"]
 
-    cursor = collection.find({}).sort("_id", 1).skip(skip).limit(limit)
+    sort_field = sort_by or "_id"
+    sort_direction = ASCENDING if sort_order == "asc" else DESCENDING
+
+    cursor = (
+        collection.find(query)
+        .sort(sort_field, sort_direction)
+        .skip(skip)
+        .limit(limit)
+    )
     items = serialize_documents(list(cursor))
 
     return {
         "items": items,
         "limit": limit,
         "skip": skip,
-        "total": collection.count_documents({}),
+        "total": collection.count_documents(query),
     }
 
 
