@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from backend.app.routers import collections, health, perfumes
+from backend.app.routers import (
+    collections,
+    health,
+    perfumes,
+    statistics,
+)
+
 
 app = FastAPI(
     title="ScentBase API",
@@ -10,9 +16,11 @@ app = FastAPI(
     version="0.1.0",
 )
 
+
 app.include_router(health.router)
 app.include_router(collections.router)
 app.include_router(perfumes.router)
+app.include_router(statistics.router)
 
 
 @app.get("/", tags=["root"])
