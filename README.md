@@ -629,13 +629,11 @@ Per eseguire soltanto i test della ricerca di profumi simili:
 python -m pytest tests/test_similarity.py -v
 ```
 
-L'ultimo risultato registrato prima dell'aggiunta della ricerca di similarità era:
+Ultimo risultato ottenuto sull'intera suite:
 
 ```text
-62 passed in 1.14s
+76 passed in 1.48s
 ```
-
-Dopo aver aggiunto la Issue 10, eseguire nuovamente l'intera suite e aggiornare questo risultato con il conteggio effettivo.
 
 La suite verifica:
 
@@ -765,6 +763,6 @@ La ricerca del catalogo supporta filtri singoli e combinati per nome, brand, gen
 
 Sono state completate anche le JOIN multi-collection tramite `$lookup`, il dettaglio completo del profumo e le aggregazioni statistiche per profumi, brand e note. Le pipeline sono disponibili sia nel backend Python sia nello script `queries/issue-09-aggregations.js` e sono state verificate sul dataset completo di 24.063 profumi.
 
-È stata inoltre implementata la ricerca di profumi simili basata sulla similarità di Jaccard delle note e degli accordi. La funzionalità preseleziona i candidati che condividono almeno un elemento, applica uno score pesato, esclude il profumo sorgente e restituisce brand, note condivise, accordi condivisi e componenti dello score. La pipeline è disponibile in `backend/app/services/similarity.py` e nello script `queries/issue-10-similar-perfumes.js`.
+È stata inoltre implementata e verificata sul dataset completo la ricerca di profumi simili basata sulla similarità di Jaccard delle note e degli accordi. La funzionalità preseleziona i candidati che condividono almeno un elemento, applica uno score pesato, esclude il profumo sorgente e restituisce brand, note condivise, accordi condivisi e componenti dello score. La pipeline è disponibile in `backend/app/services/similarity.py` e nello script `queries/issue-10-similar-perfumes.js`. I test automatici e le verifiche manuali confermano il corretto calcolo dello score, l'ordinamento deterministico, la validazione del parametro `limit` e la gestione degli errori `404` e `422`.
 
 Le prossime attività riguarderanno gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
