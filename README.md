@@ -33,6 +33,7 @@ data/processed/       Documenti JSON generati dalla trasformazione
 db/schema/            Schemi preliminari delle collection MongoDB
 docs/modeling.md      Scelte di modellazione documentale
 docs/etl.md           Pipeline di estrazione, trasformazione e caricamento
+docs/queries.md       JOIN multi-collection e aggregazioni statistiche
 queries/              Query MongoDB e aggregation pipeline
 scripts/              Script di estrazione, trasformazione, importazione e verifica
 tests/                Test automatici di integrazione del backend
@@ -317,8 +318,12 @@ http://127.0.0.1:8000/docs
 | GET | `/perfumes` | Ricerca e filtra i profumi con ordinamento e paginazione |
 | POST | `/perfumes` | Crea un nuovo profumo |
 | GET | `/perfumes/{perfume_id}` | Restituisce un profumo tramite `_id` |
+| GET | `/perfumes/{perfume_id}/details` | Restituisce il profumo con brand, note, accordi e profumieri espansi |
 | PUT | `/perfumes/{perfume_id}` | Sostituisce i campi modificabili di un profumo esistente |
 | DELETE | `/perfumes/{perfume_id}` | Elimina un profumo esistente |
+| GET | `/statistics/top-perfumes` | Restituisce i profumi meglio valutati |
+| GET | `/statistics/brands` | Restituisce conteggi e rating medio per brand |
+| GET | `/statistics/notes` | Restituisce le note olfattive più frequenti |
 
 ### Ricerca e filtri sui profumi
 
@@ -381,9 +386,58 @@ Gli intervalli incoerenti, come `year_min` maggiore di `year_max`, restituiscono
 
 La ricerca di un brand, una nota, un accordo o un profumiere non presente restituisce una lista vuota con stato `200 OK`.
 
-Gli endpoint restituiscono per ora i riferimenti verso le collection collegate come identificativi, ad esempio `brand_id`, `all_note_ids`, `accord_ids` e `perfumer_ids`.
+L’endpoint standard mantiene i riferimenti verso le collection collegate come identificativi. Per ottenere i documenti espansi è disponibile l’endpoint di dettaglio completo.
 
-L’espansione dei dati collegati tramite `$lookup` sarà implementata in una issue successiva dedicata alle query multi-collection.
+### JOIN multi-collection e aggregazioni statistiche
+
+L’endpoint:
+
+```text
+GET /perfumes/{perfume_id}/details
+```
+
+usa `$lookup` verso `brands`, `notes`, `accords` e `perfumers`. La risposta mantiene gli identificativi originali e aggiunge:
+
+```text
+brand
+top_notes
+middle_notes
+base_notes
+accords
+perfumers
+```
+
+Le note di testa, cuore e fondo restano separate e il loro ordine originale viene conservato. I riferimenti assenti vengono restituiti come array vuoti.
+
+Endpoint statistici:
+
+| Endpoint | Parametri | Risultato |
+| --- | --- | --- |
+| `/statistics/top-perfumes` | `limit`, `min_votes` | Profumi ordinati per rating e numero di voti |
+| `/statistics/brands` | `limit` | Numero di profumi, numero di valutati e rating medio per brand |
+| `/statistics/notes` | `limit` | Note presenti nel maggior numero di profumi |
+
+Esempi:
+
+```powershell
+curl.exe "http://127.0.0.1:8000/perfumes/perfume_00091c9fce/details"
+curl.exe "http://127.0.0.1:8000/statistics/top-perfumes?limit=5&min_votes=100"
+curl.exe "http://127.0.0.1:8000/statistics/brands?limit=5"
+curl.exe "http://127.0.0.1:8000/statistics/notes?limit=5"
+```
+
+Le pipeline sono versionate in:
+
+```text
+queries/issue-09-aggregations.js
+```
+
+La descrizione sintetica delle query è disponibile in:
+
+```text
+docs/queries.md
+```
+
 
 ### Operazioni CRUD sui profumi
 
@@ -477,6 +531,18 @@ Eseguire tutti i test dalla root del repository:
 python -m pytest -v
 ```
 
+Per eseguire soltanto i test delle JOIN e delle aggregazioni:
+
+```bash
+python -m pytest tests/test_aggregations.py -v
+```
+
+Ultimo risultato ottenuto sull’intera suite:
+
+```text
+62 passed in 1.14s
+```
+
 La suite verifica:
 
 * filtri singoli e combinati;
@@ -486,7 +552,11 @@ La suite verifica:
 * paginazione e calcolo di `total`;
 * riferimenti non presenti nelle collection collegate;
 * intervalli incoerenti e parametri non validi;
-* regressione minima degli endpoint di lettura e health check.
+* regressione minima degli endpoint di lettura e health check;
+* JOIN multi-collection tramite `$lookup`;
+* conservazione dell’ordine delle note e gestione degli array vuoti;
+* aggregazioni per profumi, brand e note;
+* validazione dei parametri `limit` e `min_votes`.
 
 I file principali sono:
 
@@ -494,6 +564,7 @@ I file principali sono:
 pytest.ini
 tests/conftest.py
 tests/test_perfume_filters.py
+tests/test_aggregations.py
 ```
 
 ### Verifica manuale degli endpoint
@@ -520,6 +591,10 @@ curl http://127.0.0.1:8000/collections/counts
 curl "http://127.0.0.1:8000/perfumes?limit=5&skip=0"
 curl "http://127.0.0.1:8000/perfumes/<ID_REALE>"
 curl "http://127.0.0.1:8000/perfumes/not_existing_perfume"
+curl "http://127.0.0.1:8000/perfumes/<ID_REALE>/details"
+curl "http://127.0.0.1:8000/statistics/top-perfumes?limit=5&min_votes=100"
+curl "http://127.0.0.1:8000/statistics/brands?limit=5"
+curl "http://127.0.0.1:8000/statistics/notes?limit=5"
 ```
 
 Per verificare la CRUD completa:
@@ -585,4 +660,6 @@ Le operazioni CRUD principali sulla collection `perfumes` sono state completate.
 
 La ricerca del catalogo supporta filtri singoli e combinati per nome, brand, genere, anno, rating, voti, note, accordi e profumieri, oltre a ordinamento e paginazione. La funzionalità è verificata tramite test automatici di integrazione eseguiti su un database MongoDB separato denominato `scentbase_test`.
 
-Le prossime attività riguarderanno le query di aggregazione, la JOIN tramite `$lookup`, la ricerca di profumi simili, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
+Sono state completate anche le JOIN multi-collection tramite `$lookup`, il dettaglio completo del profumo e le aggregazioni statistiche per profumi, brand e note. Le pipeline sono disponibili sia nel backend Python sia nello script `queries/issue-09-aggregations.js` e sono state verificate sul dataset completo di 24.063 profumi.
+
+Le prossime attività riguarderanno la ricerca di profumi simili, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
