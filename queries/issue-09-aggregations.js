@@ -1,21 +1,52 @@
 /*
  * Aggregation Pipeline della Issue 9.
  *
- * Esecuzione:
- *   mongosh mongodb://scentbase_admin:change_me@localhost:27017/admin \
- *     queries/issue-09-aggregations.js
+ * Lo script esegue:
+ *   1. dettaglio completo di un profumo;
+ *   2. classifica dei profumi meglio valutati;
+ *   3. statistiche aggregate per brand;
+ *   4. classifica delle note olfattive più frequenti.
  *
- * Modificare databaseName e perfumeId quando necessario.
+ * Il profumo usato nella prima pipeline viene selezionato automaticamente
+ * tra i documenti presenti nella collection perfumes.
+ *
+ * Esecuzione tramite il container MongoDB:
+ *
+ *   docker cp .\queries\issue-09-aggregations.js \
+ *     scentbase-mongodb:/tmp/issue-09-aggregations.js
+ *
+ *   docker exec -it scentbase-mongodb mongosh \
+ *     "mongodb://scentbase_admin:change_me@localhost:27017/admin" \
+ *     /tmp/issue-09-aggregations.js
  */
 
 const databaseName = "scentbase";
-const perfumeId = "perfume_vanilla_woods";
 const limit = 10;
 const minVotes = 100;
 
 const scentbaseDb = db.getSiblingDB(databaseName);
 
+const samplePerfume = scentbaseDb.perfumes.findOne(
+    {},
+    {
+        _id: 1
+    }
+);
 
+if (samplePerfume === null) {
+    throw new Error(
+        `Nessun profumo presente nel database '${databaseName}'`
+    );
+}
+
+const perfumeId = samplePerfume._id;
+
+
+/**
+ * Restituisce il primo documento prodotto da un lookup.
+ *
+ * Se il lookup non ha trovato documenti, restituisce null.
+ */
 function firstDocumentOrNull(lookupResultField) {
     return {
         $ifNull: [
@@ -31,6 +62,13 @@ function firstDocumentOrNull(lookupResultField) {
 }
 
 
+/**
+ * Ricostruisce un array di documenti collegati conservando l'ordine
+ * degli identificativi presenti nel documento perfume.
+ *
+ * MongoDB non garantisce che l'array prodotto da $lookup mantenga
+ * l'ordine dell'array locale. Per questo vengono usati $map e $filter.
+ */
 function orderedDocuments(
     idArrayField,
     lookupResultField
@@ -82,7 +120,25 @@ function orderedDocuments(
 }
 
 
-print("\n=== Dettaglio completo del profumo ===\n");
+print(
+    "\n============================================================"
+);
+
+print(
+    "1. DETTAGLIO COMPLETO DEL PROFUMO"
+);
+
+print(
+    `Database: ${databaseName}`
+);
+
+print(
+    `Profumo selezionato: ${perfumeId}`
+);
+
+print(
+    "============================================================\n"
+);
 
 printjson(
     scentbaseDb.perfumes.aggregate(
@@ -164,7 +220,21 @@ printjson(
 );
 
 
-print("\n=== Profumi meglio valutati ===\n");
+print(
+    "\n============================================================"
+);
+
+print(
+    "2. PROFUMI MEGLIO VALUTATI"
+);
+
+print(
+    `Limite: ${limit} - Voti minimi: ${minVotes}`
+);
+
+print(
+    "============================================================\n"
+);
 
 printjson(
     scentbaseDb.perfumes.aggregate(
@@ -214,7 +284,21 @@ printjson(
 );
 
 
-print("\n=== Statistiche per brand ===\n");
+print(
+    "\n============================================================"
+);
+
+print(
+    "3. STATISTICHE PER BRAND"
+);
+
+print(
+    `Numero massimo di brand restituiti: ${limit}`
+);
+
+print(
+    "============================================================\n"
+);
 
 printjson(
     scentbaseDb.perfumes.aggregate(
@@ -285,7 +369,21 @@ printjson(
 );
 
 
-print("\n=== Note olfattive più frequenti ===\n");
+print(
+    "\n============================================================"
+);
+
+print(
+    "4. NOTE OLFATTIVE PIÙ FREQUENTI"
+);
+
+print(
+    `Numero massimo di note restituite: ${limit}`
+);
+
+print(
+    "============================================================\n"
+);
 
 printjson(
     scentbaseDb.perfumes.aggregate(
@@ -343,4 +441,17 @@ printjson(
             }
         ]
     ).toArray()
+);
+
+
+print(
+    "\n============================================================"
+);
+
+print(
+    "ESECUZIONE COMPLETATA"
+);
+
+print(
+    "============================================================\n"
 );
