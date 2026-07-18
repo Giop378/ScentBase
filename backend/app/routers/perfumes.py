@@ -4,6 +4,10 @@ Il router espone gli endpoint di consultazione e le operazioni di creazione,
 sostituzione ed eliminazione dei profumi. L'endpoint ``GET /perfumes`` supporta
 inoltre filtri combinabili, ordinamento e paginazione.
 
+L'endpoint ``GET /perfumes/{perfume_id}/details`` utilizza una MongoDB
+Aggregation Pipeline per espandere i riferimenti verso brand, note, accordi
+e profumieri.
+
 I riferimenti verso brand, note, accordi e profumieri vengono validati prima
 di scrivere nel database, perché MongoDB non applica automaticamente vincoli
 di foreign key tra collection.
@@ -22,6 +26,7 @@ from pymongo.errors import DuplicateKeyError
 from backend.app.database import get_database
 from backend.app.schemas.perfumes import PerfumeCreate, PerfumeUpdate
 from backend.app.serializers import serialize_document, serialize_documents
+from backend.app.services.aggregations import build_perfume_details_pipeline
 
 
 router = APIRouter(prefix="/perfumes", tags=["perfumes"])
@@ -109,18 +114,24 @@ def build_perfume_search_query(
 
     if year_min is not None or year_max is not None:
         year_filter: dict[str, int] = {}
+
         if year_min is not None:
             year_filter["$gte"] = year_min
+
         if year_max is not None:
             year_filter["$lte"] = year_max
+
         query["year"] = year_filter
 
     if rating_min is not None or rating_max is not None:
         rating_filter: dict[str, float] = {}
+
         if rating_min is not None:
             rating_filter["$gte"] = rating_min
+
         if rating_max is not None:
             rating_filter["$lte"] = rating_max
+
         query["rating"] = rating_filter
 
     if votes_min is not None:
@@ -243,6 +254,7 @@ def validate_references(document: dict[str, Any]) -> None:
         {"_id": brand_id},
         {"_id": 1},
     )
+
     if brand is None:
         missing_references["brands"] = [brand_id]
 
@@ -250,6 +262,7 @@ def validate_references(document: dict[str, Any]) -> None:
         "notes",
         document["all_note_ids"],
     )
+
     if missing_notes:
         missing_references["notes"] = missing_notes
 
@@ -257,6 +270,7 @@ def validate_references(document: dict[str, Any]) -> None:
         "accords",
         document["accord_ids"],
     )
+
     if missing_accords:
         missing_references["accords"] = missing_accords
 
@@ -264,6 +278,7 @@ def validate_references(document: dict[str, Any]) -> None:
         "perfumers",
         document["perfumer_ids"],
     )
+
     if missing_perfumers:
         missing_references["perfumers"] = missing_perfumers
 
@@ -396,6 +411,7 @@ def get_perfumes(
         .skip(skip)
         .limit(limit)
     )
+
     items = serialize_documents(list(cursor))
 
     return {
@@ -447,6 +463,34 @@ def create_perfume(payload: PerfumeCreate) -> dict[str, Any]:
     return serialized_perfume
 
 
+@router.get("/{perfume_id}/details")
+def get_perfume_details(perfume_id: str) -> dict[str, Any]:
+    """Restituisce un profumo con tutti i riferimenti espansi.
+
+    La query utilizza una MongoDB Aggregation Pipeline con ``$lookup`` verso
+    brand, note, accordi e profumieri. Gli identificativi originali vengono
+    mantenuti insieme ai documenti collegati.
+    """
+    db = get_database()
+
+    pipeline = build_perfume_details_pipeline(perfume_id)
+
+    perfume = next(
+        db["perfumes"].aggregate(pipeline),
+        None,
+    )
+
+    serialized_perfume = serialize_document(perfume)
+
+    if serialized_perfume is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Perfume not found",
+        )
+
+    return serialized_perfume
+
+
 @router.get("/{perfume_id}")
 def get_perfume_by_id(perfume_id: str) -> dict[str, Any]:
     """Restituisce un profumo tramite il relativo identificativo."""
@@ -461,6 +505,7 @@ def get_perfume_by_id(perfume_id: str) -> dict[str, Any]:
         )
 
     serialized_perfume = serialize_document(perfume)
+
     if serialized_perfume is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -498,7 +543,9 @@ def update_perfume(
         existing_source_url=existing_perfume.get("source_url"),
         requested_source_url=requested_source_url,
     )
+
     validate_references(document)
+
     ensure_unique_source_url(
         requested_source_url,
         excluded_perfume_id=perfume_id,
@@ -527,6 +574,7 @@ def update_perfume(
         ) from exc
 
     serialized_perfume = serialize_document(updated_perfume)
+
     if serialized_perfume is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
