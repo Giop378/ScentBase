@@ -33,7 +33,7 @@ data/processed/       Documenti JSON generati dalla trasformazione
 db/schema/            Schemi preliminari delle collection MongoDB
 docs/modeling.md      Scelte di modellazione documentale
 docs/etl.md           Pipeline di estrazione, trasformazione e caricamento
-docs/queries.md       JOIN multi-collection e aggregazioni statistiche
+docs/queries.md       JOIN, aggregazioni statistiche e ricerca di profumi simili
 queries/              Query MongoDB e aggregation pipeline
 scripts/              Script di estrazione, trasformazione, importazione e verifica
 tests/                Test automatici di integrazione del backend
@@ -319,6 +319,7 @@ http://127.0.0.1:8000/docs
 | POST | `/perfumes` | Crea un nuovo profumo |
 | GET | `/perfumes/{perfume_id}` | Restituisce un profumo tramite `_id` |
 | GET | `/perfumes/{perfume_id}/details` | Restituisce il profumo con brand, note, accordi e profumieri espansi |
+| GET | `/perfumes/{perfume_id}/similar` | Restituisce i profumi più simili per note e accordi condivisi |
 | PUT | `/perfumes/{perfume_id}` | Sostituisce i campi modificabili di un profumo esistente |
 | DELETE | `/perfumes/{perfume_id}` | Elimina un profumo esistente |
 | GET | `/statistics/top-perfumes` | Restituisce i profumi meglio valutati |
@@ -438,6 +439,91 @@ La descrizione sintetica delle query è disponibile in:
 docs/queries.md
 ```
 
+### Ricerca di profumi simili
+
+L'endpoint:
+
+```text
+GET /perfumes/{perfume_id}/similar
+```
+
+restituisce una lista ordinata di profumi simili a quello indicato, confrontando gli insiemi delle note olfattive e degli accordi principali.
+
+Il parametro opzionale `limit` stabilisce il numero massimo di risultati:
+
+| Parametro | Tipo | Valore predefinito | Vincoli |
+| --- | --- | ---: | --- |
+| `limit` | intero | `10` | da `1` a `50` |
+
+Esempio:
+
+```powershell
+curl.exe "http://127.0.0.1:8000/perfumes/perfume_00091c9fce/similar?limit=5"
+```
+
+La pipeline preseleziona soltanto i candidati che condividono almeno una nota o un accordo con il profumo sorgente. Il profumo sorgente viene sempre escluso e i candidati con score uguale a zero non vengono restituiti.
+
+La similarità viene calcolata separatamente per note e accordi mediante l'indice di Jaccard:
+
+```text
+Jaccard(A, B) = |A ∩ B| / |A ∪ B|
+```
+
+Lo score finale utilizza i seguenti pesi:
+
+```text
+similarity_score =
+    0.7 × note_similarity
+  + 0.3 × accord_similarity
+```
+
+Le note hanno un peso maggiore perché rappresentano una descrizione più granulare della composizione del profumo. Quando l'unione relativa alle note o agli accordi è vuota, la componente corrispondente assume valore `0`.
+
+I risultati vengono ordinati in modo deterministico secondo:
+
+1. `similarity_score` decrescente;
+2. `rating` decrescente;
+3. `votes` decrescente;
+4. `_id` crescente.
+
+Rating e voti non partecipano al calcolo della similarità, ma vengono usati soltanto per risolvere eventuali parità.
+
+Per ogni candidato la risposta include:
+
+```text
+brand
+shared_note_ids
+shared_accord_ids
+shared_notes
+shared_accords
+note_similarity
+accord_similarity
+similarity_score
+```
+
+La pipeline MongoDB è versionata in:
+
+```text
+queries/issue-10-similar-perfumes.js
+```
+
+La formula, gli operatori usati e i limiti dell'approccio sono descritti in:
+
+```text
+docs/queries.md
+```
+
+Per eseguire direttamente la pipeline tramite il container MongoDB:
+
+```powershell
+docker cp .\queries\issue-10-similar-perfumes.js scentbase-mongodb:/tmp/issue-10-similar-perfumes.js
+
+docker exec -it scentbase-mongodb mongosh `
+  "mongodb://scentbase_admin:change_me@localhost:27017/admin" `
+  /tmp/issue-10-similar-perfumes.js
+```
+
+La similarità considera esclusivamente note e accordi. Non utilizza embedding, machine learning, descrizioni testuali, brand, genere, profumiere, anno o rating.
 
 ### Operazioni CRUD sui profumi
 
@@ -537,11 +623,19 @@ Per eseguire soltanto i test delle JOIN e delle aggregazioni:
 python -m pytest tests/test_aggregations.py -v
 ```
 
-Ultimo risultato ottenuto sull’intera suite:
+Per eseguire soltanto i test della ricerca di profumi simili:
+
+```bash
+python -m pytest tests/test_similarity.py -v
+```
+
+L'ultimo risultato registrato prima dell'aggiunta della ricerca di similarità era:
 
 ```text
 62 passed in 1.14s
 ```
+
+Dopo aver aggiunto la Issue 10, eseguire nuovamente l'intera suite e aggiornare questo risultato con il conteggio effettivo.
 
 La suite verifica:
 
@@ -556,7 +650,14 @@ La suite verifica:
 * JOIN multi-collection tramite `$lookup`;
 * conservazione dell’ordine delle note e gestione degli array vuoti;
 * aggregazioni per profumi, brand e note;
-* validazione dei parametri `limit` e `min_votes`.
+* validazione dei parametri `limit` e `min_votes`;
+* calcolo della similarità di Jaccard per note e accordi;
+* applicazione dei pesi `0.7` e `0.3`;
+* esclusione del profumo sorgente e dei candidati con score nullo;
+* espansione di brand, note condivise e accordi condivisi;
+* ordinamento deterministico dei profumi simili;
+* gestione di profumi privi di note o accordi;
+* validazione del parametro `limit` dell'endpoint di similarità.
 
 I file principali sono:
 
@@ -565,6 +666,7 @@ pytest.ini
 tests/conftest.py
 tests/test_perfume_filters.py
 tests/test_aggregations.py
+tests/test_similarity.py
 ```
 
 ### Verifica manuale degli endpoint
@@ -592,6 +694,7 @@ curl "http://127.0.0.1:8000/perfumes?limit=5&skip=0"
 curl "http://127.0.0.1:8000/perfumes/<ID_REALE>"
 curl "http://127.0.0.1:8000/perfumes/not_existing_perfume"
 curl "http://127.0.0.1:8000/perfumes/<ID_REALE>/details"
+curl "http://127.0.0.1:8000/perfumes/<ID_REALE>/similar?limit=5"
 curl "http://127.0.0.1:8000/statistics/top-perfumes?limit=5&min_votes=100"
 curl "http://127.0.0.1:8000/statistics/brands?limit=5"
 curl "http://127.0.0.1:8000/statistics/notes?limit=5"
@@ -662,4 +765,6 @@ La ricerca del catalogo supporta filtri singoli e combinati per nome, brand, gen
 
 Sono state completate anche le JOIN multi-collection tramite `$lookup`, il dettaglio completo del profumo e le aggregazioni statistiche per profumi, brand e note. Le pipeline sono disponibili sia nel backend Python sia nello script `queries/issue-09-aggregations.js` e sono state verificate sul dataset completo di 24.063 profumi.
 
-Le prossime attività riguarderanno la ricerca di profumi simili, gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
+È stata inoltre implementata la ricerca di profumi simili basata sulla similarità di Jaccard delle note e degli accordi. La funzionalità preseleziona i candidati che condividono almeno un elemento, applica uno score pesato, esclude il profumo sorgente e restituisce brand, note condivise, accordi condivisi e componenti dello score. La pipeline è disponibile in `backend/app/services/similarity.py` e nello script `queries/issue-10-similar-perfumes.js`.
+
+Le prossime attività riguarderanno gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
