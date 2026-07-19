@@ -8,6 +8,10 @@ L'endpoint ``GET /perfumes/{perfume_id}/details`` utilizza una MongoDB
 Aggregation Pipeline per espandere i riferimenti verso brand, note, accordi
 e profumieri.
 
+L'endpoint ``GET /perfumes/{perfume_id}/similar`` utilizza una MongoDB
+Aggregation Pipeline per confrontare note e accordi e restituire i profumi
+maggiormente simili.
+
 I riferimenti verso brand, note, accordi e profumieri vengono validati prima
 di scrivere nel database, perché MongoDB non applica automaticamente vincoli
 di foreign key tra collection.
@@ -27,6 +31,11 @@ from backend.app.database import get_database
 from backend.app.schemas.perfumes import PerfumeCreate, PerfumeUpdate
 from backend.app.serializers import serialize_document, serialize_documents
 from backend.app.services.aggregations import build_perfume_details_pipeline
+from backend.app.services.similarity import (
+    ACCORD_SIMILARITY_WEIGHT,
+    NOTE_SIMILARITY_WEIGHT,
+    build_similar_perfumes_pipeline,
+)
 
 
 router = APIRouter(prefix="/perfumes", tags=["perfumes"])
@@ -461,6 +470,62 @@ def create_perfume(payload: PerfumeCreate) -> dict[str, Any]:
         )
 
     return serialized_perfume
+
+
+@router.get("/{perfume_id}/similar")
+def get_similar_perfumes(
+    perfume_id: str,
+    limit: int = Query(default=10, ge=1, le=50),
+) -> dict[str, Any]:
+    """Restituisce i profumi più simili per note e accordi condivisi.
+
+    La similarità viene calcolata tramite indice di Jaccard, assegnando un peso
+    del 70% alle note e del 30% agli accordi. Il profumo sorgente e i candidati
+    con score uguale a zero vengono esclusi.
+    """
+    db = get_database()
+    collection = db["perfumes"]
+
+    source_perfume = collection.find_one(
+        {"_id": perfume_id},
+        {
+            "_id": 1,
+            "all_note_ids": 1,
+            "accord_ids": 1,
+        },
+    )
+
+    if source_perfume is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Perfume not found",
+        )
+
+    source_note_ids = unique_preserve_order(
+        source_perfume.get("all_note_ids") or []
+    )
+    source_accord_ids = unique_preserve_order(
+        source_perfume.get("accord_ids") or []
+    )
+
+    pipeline = build_similar_perfumes_pipeline(
+        source_perfume_id=perfume_id,
+        source_note_ids=source_note_ids,
+        source_accord_ids=source_accord_ids,
+        limit=limit,
+    )
+
+    items = serialize_documents(
+        list(collection.aggregate(pipeline))
+    )
+
+    return {
+        "source_perfume_id": perfume_id,
+        "note_weight": NOTE_SIMILARITY_WEIGHT,
+        "accord_weight": ACCORD_SIMILARITY_WEIGHT,
+        "limit": limit,
+        "items": items,
+    }
 
 
 @router.get("/{perfume_id}/details")
