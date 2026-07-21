@@ -1,0 +1,947 @@
+{
+  "environment": {
+    "generated_at_utc": "2026-07-20T23:40:19.402030+00:00",
+    "database": "scentbase",
+    "mongodb_version": "7.0.37",
+    "python_version": "3.10.20",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "perfume_count": 24063,
+    "warmup_runs": 3,
+    "measured_runs": 20,
+    "unmanaged_indexes": []
+  },
+  "managed_indexes": [
+    {
+      "name": "uq_perfumes_source_url",
+      "keys": [
+        {
+          "field": "source_url",
+          "direction": 1
+        }
+      ],
+      "unique": true,
+      "partial_filter_expression": {
+        "source_url": {
+          "$type": "string"
+        }
+      }
+    },
+    {
+      "name": "idx_perfumes_brand_rating",
+      "keys": [
+        {
+          "field": "brand_id",
+          "direction": 1
+        },
+        {
+          "field": "rating",
+          "direction": -1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_gender_rating_votes",
+      "keys": [
+        {
+          "field": "gender",
+          "direction": 1
+        },
+        {
+          "field": "rating",
+          "direction": -1
+        },
+        {
+          "field": "votes",
+          "direction": -1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_rating_votes",
+      "keys": [
+        {
+          "field": "rating",
+          "direction": -1
+        },
+        {
+          "field": "votes",
+          "direction": -1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_all_note_ids",
+      "keys": [
+        {
+          "field": "all_note_ids",
+          "direction": 1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_accord_ids",
+      "keys": [
+        {
+          "field": "accord_ids",
+          "direction": 1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    }
+  ],
+  "final_collection_indexes": [
+    {
+      "name": "_id_",
+      "keys": [
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_accord_ids",
+      "keys": [
+        {
+          "field": "accord_ids",
+          "direction": 1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_all_note_ids",
+      "keys": [
+        {
+          "field": "all_note_ids",
+          "direction": 1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_brand_rating",
+      "keys": [
+        {
+          "field": "brand_id",
+          "direction": 1
+        },
+        {
+          "field": "rating",
+          "direction": -1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_gender_rating_votes",
+      "keys": [
+        {
+          "field": "gender",
+          "direction": 1
+        },
+        {
+          "field": "rating",
+          "direction": -1
+        },
+        {
+          "field": "votes",
+          "direction": -1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "idx_perfumes_rating_votes",
+      "keys": [
+        {
+          "field": "rating",
+          "direction": -1
+        },
+        {
+          "field": "votes",
+          "direction": -1
+        },
+        {
+          "field": "_id",
+          "direction": 1
+        }
+      ],
+      "unique": false,
+      "partial_filter_expression": null
+    },
+    {
+      "name": "uq_perfumes_source_url",
+      "keys": [
+        {
+          "field": "source_url",
+          "direction": 1
+        }
+      ],
+      "unique": true,
+      "partial_filter_expression": {
+        "source_url": {
+          "$type": "string"
+        }
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "filter_by_note",
+      "title": "Ricerca per nota olfattiva",
+      "description": "Filtro sulla nota più frequente del dataset.",
+      "parameters": {
+        "note_id": "note_musk",
+        "limit": 20
+      },
+      "without_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_0016bda1aa",
+          "perfume_0020225a41",
+          "perfume_00250c125c",
+          "perfume_002a65bd85",
+          "perfume_003a13ac07",
+          "perfume_00444edf3c",
+          "perfume_0045cd4a16",
+          "perfume_0046783872",
+          "perfume_0050c2326c",
+          "perfume_0059653655",
+          "perfume_006104b2dc",
+          "perfume_0065e7bd0e",
+          "perfume_00699428e0",
+          "perfume_006ac16394",
+          "perfume_0077125eca",
+          "perfume_007cede7e2",
+          "perfume_008639e8ec",
+          "perfume_008b830ab6",
+          "perfume_00912a05cf",
+          "perfume_00b43e7495"
+        ],
+        "timings_ms": {
+          "mean": 4.827275,
+          "median": 3.36355,
+          "minimum": 2.5223,
+          "maximum": 30.8676,
+          "standard_deviation": 6.033886
+        },
+        "execution_stats": {
+          "execution_time_millis": 2,
+          "total_docs_examined": 63,
+          "total_keys_examined": 63,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "LIMIT",
+            "FETCH",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "_id_"
+          ]
+        }
+      },
+      "with_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_0016bda1aa",
+          "perfume_0020225a41",
+          "perfume_00250c125c",
+          "perfume_002a65bd85",
+          "perfume_003a13ac07",
+          "perfume_00444edf3c",
+          "perfume_0045cd4a16",
+          "perfume_0046783872",
+          "perfume_0050c2326c",
+          "perfume_0059653655",
+          "perfume_006104b2dc",
+          "perfume_0065e7bd0e",
+          "perfume_00699428e0",
+          "perfume_006ac16394",
+          "perfume_0077125eca",
+          "perfume_007cede7e2",
+          "perfume_008639e8ec",
+          "perfume_008b830ab6",
+          "perfume_00912a05cf",
+          "perfume_00b43e7495"
+        ],
+        "timings_ms": {
+          "mean": 3.14731,
+          "median": 2.847,
+          "minimum": 2.1684,
+          "maximum": 4.9143,
+          "standard_deviation": 0.813604
+        },
+        "execution_stats": {
+          "execution_time_millis": 0,
+          "total_docs_examined": 20,
+          "total_keys_examined": 20,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "LIMIT",
+            "FETCH",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "idx_perfumes_all_note_ids"
+          ]
+        }
+      },
+      "comparison": {
+        "results_equivalent": true,
+        "mean_time_reduction_percent": 34.802,
+        "median_time_reduction_percent": 15.357,
+        "docs_examined_reduction_percent": 68.254
+      }
+    },
+    {
+      "name": "filter_by_accord",
+      "title": "Ricerca per accordo principale",
+      "description": "Filtro sull'accordo più frequente del dataset.",
+      "parameters": {
+        "accord_id": "accord_woody",
+        "limit": 20
+      },
+      "without_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_00091c9fce",
+          "perfume_00099ed367",
+          "perfume_000f14f3f3",
+          "perfume_0018344607",
+          "perfume_00252d0543",
+          "perfume_00255d715a",
+          "perfume_00337feef9",
+          "perfume_00340717f6",
+          "perfume_0036bd1431",
+          "perfume_003a13ac07",
+          "perfume_003adc0bf2",
+          "perfume_003bc26e9e",
+          "perfume_003d93778e",
+          "perfume_0041a60202",
+          "perfume_00444edf3c",
+          "perfume_0045cd4a16",
+          "perfume_0050c2326c",
+          "perfume_0051220243",
+          "perfume_0059653655",
+          "perfume_0065e7bd0e"
+        ],
+        "timings_ms": {
+          "mean": 5.138585,
+          "median": 3.93245,
+          "minimum": 2.7987,
+          "maximum": 25.9225,
+          "standard_deviation": 4.872353
+        },
+        "execution_stats": {
+          "execution_time_millis": 0,
+          "total_docs_examined": 32,
+          "total_keys_examined": 32,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "LIMIT",
+            "FETCH",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "_id_"
+          ]
+        }
+      },
+      "with_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_00091c9fce",
+          "perfume_00099ed367",
+          "perfume_000f14f3f3",
+          "perfume_0018344607",
+          "perfume_00252d0543",
+          "perfume_00255d715a",
+          "perfume_00337feef9",
+          "perfume_00340717f6",
+          "perfume_0036bd1431",
+          "perfume_003a13ac07",
+          "perfume_003adc0bf2",
+          "perfume_003bc26e9e",
+          "perfume_003d93778e",
+          "perfume_0041a60202",
+          "perfume_00444edf3c",
+          "perfume_0045cd4a16",
+          "perfume_0050c2326c",
+          "perfume_0051220243",
+          "perfume_0059653655",
+          "perfume_0065e7bd0e"
+        ],
+        "timings_ms": {
+          "mean": 2.95557,
+          "median": 2.7675,
+          "minimum": 2.0865,
+          "maximum": 4.5215,
+          "standard_deviation": 0.74111
+        },
+        "execution_stats": {
+          "execution_time_millis": 0,
+          "total_docs_examined": 20,
+          "total_keys_examined": 20,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "LIMIT",
+            "FETCH",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "idx_perfumes_accord_ids"
+          ]
+        }
+      },
+      "comparison": {
+        "results_equivalent": true,
+        "mean_time_reduction_percent": 42.483,
+        "median_time_reduction_percent": 29.624,
+        "docs_examined_reduction_percent": 37.5
+      }
+    },
+    {
+      "name": "brand_sorted_by_rating",
+      "title": "Brand ordinato per rating",
+      "description": "Filtro sul brand più frequente con sort per rating.",
+      "parameters": {
+        "brand_id": "brand_avon",
+        "limit": 20
+      },
+      "without_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_deda104b43",
+          "perfume_1d5db70130",
+          "perfume_4123fecdb1",
+          "perfume_196ac91780",
+          "perfume_4d3e73c223",
+          "perfume_e58f5ad5c8",
+          "perfume_1349cf8c9e",
+          "perfume_f58ae70b2f",
+          "perfume_a190a853f6",
+          "perfume_8c1d97fd24",
+          "perfume_dd1dfb6f7f",
+          "perfume_9182681e20",
+          "perfume_921fb0c627",
+          "perfume_23491cd3f9",
+          "perfume_809a00d4cf",
+          "perfume_a602a56096",
+          "perfume_83a4e81c5b",
+          "perfume_c379dd8658",
+          "perfume_7056cf9b06",
+          "perfume_80dc82abe6"
+        ],
+        "timings_ms": {
+          "mean": 25.211945,
+          "median": 21.0703,
+          "minimum": 18.8322,
+          "maximum": 69.4342,
+          "standard_deviation": 11.900899
+        },
+        "execution_stats": {
+          "execution_time_millis": 17,
+          "total_docs_examined": 24063,
+          "total_keys_examined": 0,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "SORT",
+            "COLLSCAN"
+          ],
+          "used_indexes": []
+        }
+      },
+      "with_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_deda104b43",
+          "perfume_1d5db70130",
+          "perfume_4123fecdb1",
+          "perfume_196ac91780",
+          "perfume_4d3e73c223",
+          "perfume_e58f5ad5c8",
+          "perfume_1349cf8c9e",
+          "perfume_f58ae70b2f",
+          "perfume_a190a853f6",
+          "perfume_8c1d97fd24",
+          "perfume_dd1dfb6f7f",
+          "perfume_9182681e20",
+          "perfume_921fb0c627",
+          "perfume_23491cd3f9",
+          "perfume_809a00d4cf",
+          "perfume_a602a56096",
+          "perfume_83a4e81c5b",
+          "perfume_c379dd8658",
+          "perfume_7056cf9b06",
+          "perfume_80dc82abe6"
+        ],
+        "timings_ms": {
+          "mean": 2.72705,
+          "median": 2.69635,
+          "minimum": 2.1416,
+          "maximum": 3.63,
+          "standard_deviation": 0.383988
+        },
+        "execution_stats": {
+          "execution_time_millis": 0,
+          "total_docs_examined": 20,
+          "total_keys_examined": 20,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "LIMIT",
+            "FETCH",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "idx_perfumes_brand_rating"
+          ]
+        }
+      },
+      "comparison": {
+        "results_equivalent": true,
+        "mean_time_reduction_percent": 89.184,
+        "median_time_reduction_percent": 87.203,
+        "docs_examined_reduction_percent": 99.917
+      }
+    },
+    {
+      "name": "combined_filters",
+      "title": "Filtri combinati",
+      "description": "Genere, rating minimo e numero minimo di voti.",
+      "parameters": {
+        "filter": {
+          "gender": "women",
+          "rating": {
+            "$gte": 4.0
+          },
+          "votes": {
+            "$gte": 100
+          }
+        },
+        "limit": 20
+      },
+      "without_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_85b8c7077d",
+          "perfume_af7f1872ee",
+          "perfume_69724b7cfd",
+          "perfume_ad674fcaf2",
+          "perfume_cc70a4cb70",
+          "perfume_8d7c3575ad",
+          "perfume_442ba736b5",
+          "perfume_84300e1346",
+          "perfume_2edc399bce",
+          "perfume_e7c31ef17b",
+          "perfume_5ffccea51c",
+          "perfume_bc7a2f2c05",
+          "perfume_9870711e50",
+          "perfume_11a2ebf7f1",
+          "perfume_eb89c00ff8",
+          "perfume_a3dcf04f7a",
+          "perfume_d4a943b7ca",
+          "perfume_6d7f72f926",
+          "perfume_503429a39e",
+          "perfume_2aab476bae"
+        ],
+        "timings_ms": {
+          "mean": 35.032105,
+          "median": 28.75565,
+          "minimum": 24.6439,
+          "maximum": 63.0607,
+          "standard_deviation": 12.249685
+        },
+        "execution_stats": {
+          "execution_time_millis": 22,
+          "total_docs_examined": 24063,
+          "total_keys_examined": 0,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "SORT",
+            "COLLSCAN"
+          ],
+          "used_indexes": []
+        }
+      },
+      "with_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_85b8c7077d",
+          "perfume_af7f1872ee",
+          "perfume_69724b7cfd",
+          "perfume_ad674fcaf2",
+          "perfume_cc70a4cb70",
+          "perfume_8d7c3575ad",
+          "perfume_442ba736b5",
+          "perfume_84300e1346",
+          "perfume_2edc399bce",
+          "perfume_e7c31ef17b",
+          "perfume_5ffccea51c",
+          "perfume_bc7a2f2c05",
+          "perfume_9870711e50",
+          "perfume_11a2ebf7f1",
+          "perfume_eb89c00ff8",
+          "perfume_a3dcf04f7a",
+          "perfume_d4a943b7ca",
+          "perfume_6d7f72f926",
+          "perfume_503429a39e",
+          "perfume_2aab476bae"
+        ],
+        "timings_ms": {
+          "mean": 3.04612,
+          "median": 2.9902,
+          "minimum": 2.2355,
+          "maximum": 5.3451,
+          "standard_deviation": 0.720631
+        },
+        "execution_stats": {
+          "execution_time_millis": 0,
+          "total_docs_examined": 20,
+          "total_keys_examined": 37,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "LIMIT",
+            "FETCH",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "idx_perfumes_gender_rating_votes"
+          ]
+        }
+      },
+      "comparison": {
+        "results_equivalent": true,
+        "mean_time_reduction_percent": 91.305,
+        "median_time_reduction_percent": 89.601,
+        "docs_examined_reduction_percent": 99.917
+      }
+    },
+    {
+      "name": "top_perfumes",
+      "title": "Profumi meglio valutati",
+      "description": "Pipeline reale della classifica per rating e voti.",
+      "parameters": {
+        "min_votes": 100,
+        "limit": 20
+      },
+      "without_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_c383bc4dcf",
+          "perfume_ada9088e6d",
+          "perfume_fa8286ef7e",
+          "perfume_85b8c7077d",
+          "perfume_5bb32c939e",
+          "perfume_af7f1872ee",
+          "perfume_5b7f90de89",
+          "perfume_69724b7cfd",
+          "perfume_774115ff1b",
+          "perfume_c284d18d12",
+          "perfume_ad674fcaf2",
+          "perfume_cc70a4cb70",
+          "perfume_44d86918d8",
+          "perfume_e5f8662a55",
+          "perfume_8d7c3575ad",
+          "perfume_442ba736b5",
+          "perfume_614ee013a9",
+          "perfume_0e1a14eb5d",
+          "perfume_35cbcb104f",
+          "perfume_a314094b01"
+        ],
+        "timings_ms": {
+          "mean": 49.10039,
+          "median": 44.54025,
+          "minimum": 34.2392,
+          "maximum": 88.9377,
+          "standard_deviation": 14.21918
+        },
+        "execution_stats": {
+          "execution_time_millis": 34,
+          "total_docs_examined": 24063,
+          "total_keys_examined": 0,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "SORT",
+            "COLLSCAN"
+          ],
+          "used_indexes": []
+        }
+      },
+      "with_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_c383bc4dcf",
+          "perfume_ada9088e6d",
+          "perfume_fa8286ef7e",
+          "perfume_85b8c7077d",
+          "perfume_5bb32c939e",
+          "perfume_af7f1872ee",
+          "perfume_5b7f90de89",
+          "perfume_69724b7cfd",
+          "perfume_774115ff1b",
+          "perfume_c284d18d12",
+          "perfume_ad674fcaf2",
+          "perfume_cc70a4cb70",
+          "perfume_44d86918d8",
+          "perfume_e5f8662a55",
+          "perfume_8d7c3575ad",
+          "perfume_442ba736b5",
+          "perfume_614ee013a9",
+          "perfume_0e1a14eb5d",
+          "perfume_35cbcb104f",
+          "perfume_a314094b01"
+        ],
+        "timings_ms": {
+          "mean": 4.745985,
+          "median": 4.6871,
+          "minimum": 3.5159,
+          "maximum": 6.3825,
+          "standard_deviation": 0.711209
+        },
+        "execution_stats": {
+          "execution_time_millis": 1,
+          "total_docs_examined": 20,
+          "total_keys_examined": 39,
+          "n_returned": 20,
+          "winning_plan_stages": [
+            "LIMIT",
+            "FETCH",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "idx_perfumes_rating_votes"
+          ]
+        }
+      },
+      "comparison": {
+        "results_equivalent": true,
+        "mean_time_reduction_percent": 90.334,
+        "median_time_reduction_percent": 89.477,
+        "docs_examined_reduction_percent": 99.917
+      }
+    },
+    {
+      "name": "similar_perfumes",
+      "title": "Profumi simili",
+      "description": "Pipeline reale di similarità per note e accordi.",
+      "parameters": {
+        "source_perfume_id": "perfume_86cd984e53",
+        "source_note_count": 62,
+        "source_accord_count": 5,
+        "limit": 20
+      },
+      "without_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_ce9b6c7ca3",
+          "perfume_54ae7d937d",
+          "perfume_de63745577",
+          "perfume_6addb01fd1",
+          "perfume_fa2fd2a59c",
+          "perfume_b973784fad",
+          "perfume_8943b7f10a",
+          "perfume_504e9211d1",
+          "perfume_b3ff19d54b",
+          "perfume_d2368a9108",
+          "perfume_791d653c0c",
+          "perfume_de5bd7f235",
+          "perfume_fbbc3d8cbd",
+          "perfume_23843a8e7b",
+          "perfume_e19823dadf",
+          "perfume_178e48a5e3",
+          "perfume_6034f33543",
+          "perfume_4a43ad155a",
+          "perfume_9870711e50",
+          "perfume_3657f345af"
+        ],
+        "timings_ms": {
+          "mean": 1499.93488,
+          "median": 1523.54035,
+          "minimum": 1370.3477,
+          "maximum": 1639.0041,
+          "standard_deviation": 86.906367
+        },
+        "execution_stats": {
+          "execution_time_millis": 1498,
+          "total_docs_examined": 24062,
+          "total_keys_examined": 24063,
+          "n_returned": 23986,
+          "winning_plan_stages": [
+            "FETCH",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "_id_"
+          ]
+        }
+      },
+      "with_indexes": {
+        "result_count": 20,
+        "result_signature": [
+          "perfume_ce9b6c7ca3",
+          "perfume_54ae7d937d",
+          "perfume_de63745577",
+          "perfume_6addb01fd1",
+          "perfume_fa2fd2a59c",
+          "perfume_b973784fad",
+          "perfume_8943b7f10a",
+          "perfume_504e9211d1",
+          "perfume_b3ff19d54b",
+          "perfume_d2368a9108",
+          "perfume_791d653c0c",
+          "perfume_de5bd7f235",
+          "perfume_fbbc3d8cbd",
+          "perfume_23843a8e7b",
+          "perfume_e19823dadf",
+          "perfume_178e48a5e3",
+          "perfume_6034f33543",
+          "perfume_4a43ad155a",
+          "perfume_9870711e50",
+          "perfume_3657f345af"
+        ],
+        "timings_ms": {
+          "mean": 1540.79768,
+          "median": 1528.5979,
+          "minimum": 1453.3417,
+          "maximum": 1694.4345,
+          "standard_deviation": 61.494235
+        },
+        "execution_stats": {
+          "execution_time_millis": 1542,
+          "total_docs_examined": 23986,
+          "total_keys_examined": 159055,
+          "n_returned": 23986,
+          "winning_plan_stages": [
+            "FETCH",
+            "OR",
+            "IXSCAN"
+          ],
+          "used_indexes": [
+            "idx_perfumes_all_note_ids",
+            "idx_perfumes_accord_ids"
+          ]
+        }
+      },
+      "comparison": {
+        "results_equivalent": true,
+        "mean_time_reduction_percent": -2.724,
+        "median_time_reduction_percent": -0.332,
+        "docs_examined_reduction_percent": 0.316
+      }
+    },
+    {
+      "name": "source_url_lookup",
+      "title": "Ricerca esatta per source_url",
+      "description": "Ricerca sul campo con indice univoco parziale.",
+      "parameters": {
+        "source_url": "https://www.fragrantica.com/perfume/the-different-company/bois-d-iris-4217.html"
+      },
+      "without_indexes": {
+        "result_count": 1,
+        "result_signature": [
+          "perfume_00091c9fce"
+        ],
+        "timings_ms": {
+          "mean": 11.263255,
+          "median": 10.6408,
+          "minimum": 8.989,
+          "maximum": 18.7116,
+          "standard_deviation": 2.265166
+        },
+        "execution_stats": {
+          "execution_time_millis": 7,
+          "total_docs_examined": 14977,
+          "total_keys_examined": 0,
+          "n_returned": 1,
+          "winning_plan_stages": [
+            "LIMIT",
+            "COLLSCAN"
+          ],
+          "used_indexes": []
+        }
+      },
+      "with_indexes": {
+        "result_count": 1,
+        "result_signature": [
+          "perfume_00091c9fce"
+        ],
+        "timings_ms": {
+          "mean": 9.20101,
+          "median": 9.3466,
+          "minimum": 7.6921,
+          "maximum": 10.8887,
+          "standard_deviation": 0.839392
+        },
+        "execution_stats": {
+          "execution_time_millis": 6,
+          "total_docs_examined": 14977,
+          "total_keys_examined": 0,
+          "n_returned": 1,
+          "winning_plan_stages": [
+            "LIMIT",
+            "COLLSCAN"
+          ],
+          "used_indexes": []
+        }
+      },
+      "comparison": {
+        "results_equivalent": true,
+        "mean_time_reduction_percent": 18.309,
+        "median_time_reduction_percent": 12.163,
+        "docs_examined_reduction_percent": 0.0
+      }
+    }
+  ]
+}

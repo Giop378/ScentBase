@@ -23,28 +23,33 @@ Il sistema prevede:
 ## Struttura del progetto
 
 ```text
-.github/              Template per issue e pull request
-backend/              Backend FastAPI
-frontend/             Interfaccia utente minimale
-benchmarks/results/   Risultati dei benchmark
-data/raw/             Dataset sorgente
-data/enrichment/      Valori distinti e mapping di arricchimento
-data/processed/       Documenti JSON generati dalla trasformazione
-db/schema/            Schemi preliminari delle collection MongoDB
-docs/modeling.md      Scelte di modellazione documentale
-docs/etl.md           Pipeline di estrazione, trasformazione e caricamento
-docs/queries.md       JOIN, aggregazioni statistiche e ricerca di profumi simili
-queries/              Query MongoDB e aggregation pipeline
-scripts/              Script di estrazione, trasformazione, importazione e verifica
-tests/                Test automatici di integrazione del backend
-pytest.ini            Configurazione di pytest
+.github/                              Template per issue e pull request
+backend/                              Backend FastAPI
+backend/app/indexes.py                Definizione centralizzata degli indici MongoDB
+frontend/                             Interfaccia utente minimale
+benchmarks/run_benchmarks.py          Benchmark replicabile con e senza indici
+benchmarks/results/                   Risultati grezzi dei benchmark
+data/raw/                             Dataset sorgente
+data/enrichment/                      Valori distinti e mapping di arricchimento
+data/processed/                       Documenti JSON generati dalla trasformazione
+db/schema/                            Schemi preliminari delle collection MongoDB
+docs/modeling.md                      Scelte di modellazione documentale
+docs/etl.md                           Pipeline di estrazione, trasformazione e caricamento
+docs/queries.md                       JOIN, aggregazioni statistiche e ricerca di profumi simili
+docs/indexes-and-benchmarks.md        Progettazione degli indici e analisi dei benchmark
+queries/                              Query MongoDB e aggregation pipeline
+scripts/                              Script di estrazione, trasformazione, importazione e verifica
+scripts/manage_indexes.py             Creazione, elenco e rimozione degli indici gestiti
+tests/                                Test automatici di integrazione del backend
+tests/test_indexes.py                 Test automatici sulla gestione degli indici
+pytest.ini                            Configurazione di pytest
 ```
 
 ## Prerequisiti
 
 Per eseguire il progetto in locale sono necessari:
 
-* Python 3.11 o versione compatibile;
+* Python 3.10 o versione compatibile;
 * Docker e Docker Compose;
 * un ambiente Python locale, ad esempio Conda;
 * le dipendenze indicate in `requirements.txt`.
@@ -577,6 +582,149 @@ Principali codici di risposta:
 | `409` | Conflitto di unicità, ad esempio `source_url` duplicato |
 | `422` | Payload o parametro della query non valido |
 
+### Indici MongoDB
+
+Gli indici della collection `perfumes` sono definiti centralmente in:
+
+```text
+backend/app/indexes.py
+```
+
+Gli indici gestiti sono:
+
+| Indice | Funzione principale |
+| --- | --- |
+| `uq_perfumes_source_url` | Garantisce l’unicità dei valori stringa di `source_url` |
+| `idx_perfumes_brand_rating` | Supporta il filtro per brand e l’ordinamento per rating |
+| `idx_perfumes_gender_rating_votes` | Supporta filtri combinati per genere, rating e voti |
+| `idx_perfumes_rating_votes` | Supporta la classifica dei profumi meglio valutati |
+| `idx_perfumes_all_note_ids` | Supporta la ricerca dei profumi per nota olfattiva |
+| `idx_perfumes_accord_ids` | Supporta la ricerca dei profumi per accordo |
+
+L’indice su `source_url` è univoco e parziale: indicizza soltanto i documenti nei quali il campo contiene una stringa. In questo modo impedisce URL duplicati, ma permette la presenza di più profumi manuali senza `source_url` o con valore `null`.
+
+La gestione avviene tramite:
+
+```text
+scripts/manage_indexes.py
+```
+
+Creare gli indici:
+
+```bash
+python scripts/manage_indexes.py create
+```
+
+Elencare gli indici presenti:
+
+```bash
+python scripts/manage_indexes.py list
+```
+
+Rimuovere esclusivamente gli indici gestiti da ScentBase:
+
+```bash
+python scripts/manage_indexes.py drop
+```
+
+La rimozione conserva sempre l’indice MongoDB obbligatorio `_id_` e gli eventuali indici non gestiti dallo script.
+
+La creazione è idempotente: il comando `create` può essere eseguito più volte senza produrre duplicazioni o errori.
+
+L’importazione con:
+
+```bash
+python scripts/import_to_mongodb.py --reset
+```
+
+ricrea le collection e rimuove quindi anche gli indici personalizzati. Dopo una nuova importazione completa è necessario eseguire:
+
+```bash
+python scripts/verify_mongodb_import.py
+python scripts/manage_indexes.py create
+```
+
+### Benchmark con e senza indici
+
+Il benchmark è implementato in:
+
+```text
+benchmarks/run_benchmarks.py
+```
+
+Per eseguirlo sul dataset completo:
+
+```bash
+python benchmarks/run_benchmarks.py --warmup 3 --runs 20
+```
+
+Lo script:
+
+1. verifica la connessione e il numero di profumi;
+2. seleziona automaticamente parametri reali dal dataset;
+3. rimuove soltanto gli indici gestiti;
+4. esegue gli scenari senza indici gestiti;
+5. crea gli indici;
+6. ripete gli stessi scenari;
+7. verifica che gli identificativi restituiti siano equivalenti;
+8. raccoglie tempi ed `executionStats`;
+9. salva i risultati;
+10. lascia gli indici gestiti installati.
+
+Gli scenari confrontati sono:
+
+1. ricerca per nota olfattiva;
+2. ricerca per accordo;
+3. filtro per brand con ordinamento per rating;
+4. filtri combinati per genere, rating e voti;
+5. profumi meglio valutati;
+6. ricerca dei profumi simili;
+7. ricerca esatta per `source_url`.
+
+Per ogni scenario vengono raccolti:
+
+```text
+tempo medio
+tempo mediano
+tempo minimo e massimo
+deviazione standard
+totalDocsExamined
+totalKeysExamined
+nReturned
+piano vincente
+indici utilizzati
+```
+
+I dati grezzi sono salvati in:
+
+```text
+benchmarks/results/benchmark-results.json
+```
+
+Il report completo è disponibile in:
+
+```text
+docs/indexes-and-benchmarks.md
+```
+
+Il benchmark rigenera entrambi i file. I risultati versionati nel repository devono quindi corrispondere all’ultima esecuzione definitiva.
+
+Risultati principali dell’ultima esecuzione:
+
+| Scenario | Indice utilizzato | Variazione tempo medio |
+| --- | --- | ---: |
+| Ricerca per nota | `idx_perfumes_all_note_ids` | −34,802% |
+| Ricerca per accordo | `idx_perfumes_accord_ids` | −42,483% |
+| Brand ordinato per rating | `idx_perfumes_brand_rating` | −89,184% |
+| Filtri combinati | `idx_perfumes_gender_rating_votes` | −91,305% |
+| Profumi meglio valutati | `idx_perfumes_rating_votes` | −90,334% |
+| Profumi simili | indici su note e accordi | +2,724% |
+| Ricerca per `source_url` | nessun indice gestito | variazione non attribuibile all’indice |
+
+Un valore negativo rappresenta una riduzione del tempo. La ricerca di similarità mostra che un indice non garantisce sempre un miglioramento: in questo caso quasi tutta la collection viene selezionata e gli indici multikey devono esaminare numerose chiavi.
+
+L’indice `uq_perfumes_source_url` viene mantenuto principalmente come vincolo di integrità, anche se il query planner non lo utilizza nella query benchmarkata.
+
 ### Test automatici di integrazione
 
 Il backend dispone di test automatici eseguiti con `pytest` e `TestClient`.
@@ -629,10 +777,16 @@ Per eseguire soltanto i test della ricerca di profumi simili:
 python -m pytest tests/test_similarity.py -v
 ```
 
+Per eseguire soltanto i test della gestione degli indici:
+
+```bash
+python -m pytest tests/test_indexes.py -v
+```
+
 Ultimo risultato ottenuto sull'intera suite:
 
 ```text
-76 passed in 1.48s
+84 passed in 3.48s
 ```
 
 La suite verifica:
@@ -655,7 +809,13 @@ La suite verifica:
 * espansione di brand, note condivise e accordi condivisi;
 * ordinamento deterministico dei profumi simili;
 * gestione di profumi privi di note o accordi;
-* validazione del parametro `limit` dell'endpoint di similarità.
+* validazione del parametro `limit` dell'endpoint di similarità;
+* creazione idempotente degli indici gestiti;
+* elenco serializzabile degli indici;
+* rimozione controllata senza eliminare `_id_` o indici esterni;
+* vincolo univoco parziale su `source_url`;
+* accettazione di documenti senza `source_url` o con valore `null`;
+* equivalenza logica delle query prima e dopo la creazione degli indici.
 
 I file principali sono:
 
@@ -665,6 +825,7 @@ tests/conftest.py
 tests/test_perfume_filters.py
 tests/test_aggregations.py
 tests/test_similarity.py
+tests/test_indexes.py
 ```
 
 ### Verifica manuale degli endpoint
@@ -712,7 +873,7 @@ Lo script `verify_mongodb_import.py` controlla i conteggi esatti del dataset ETL
 
 ## Esecuzione completa da zero
 
-Per rigenerare i dati, caricarli in MongoDB e avviare il backend da zero:
+Per rigenerare i dati, caricarli in MongoDB, creare gli indici, verificare il progetto e avviare il backend:
 
 ```bash
 docker compose up -d
@@ -721,9 +882,19 @@ python scripts/extract_distinct_values.py
 python scripts/transform_dataset.py
 python scripts/import_to_mongodb.py --reset
 python scripts/verify_mongodb_import.py
+python scripts/manage_indexes.py create
+python scripts/manage_indexes.py list
 python -m pytest -v
 uvicorn backend.app.main:app --reload
 ```
+
+Per riprodurre anche il confronto con e senza indici:
+
+```bash
+python benchmarks/run_benchmarks.py --warmup 3 --runs 20
+```
+
+Il benchmark lascia gli indici gestiti installati al termine dell’esecuzione.
 
 ## File di configurazione
 
@@ -759,10 +930,18 @@ Il backend FastAPI è stato implementato e collegato al database MongoDB. L’ap
 
 Le operazioni CRUD principali sulla collection `perfumes` sono state completate. Il backend consente la creazione, la modifica e l’eliminazione dei profumi, applicando validazione Pydantic, controllo dei riferimenti verso le collection collegate, generazione automatica di `_id` e `all_note_ids`, controllo di unicità di `source_url` e gestione degli errori HTTP principali.
 
-La ricerca del catalogo supporta filtri singoli e combinati per nome, brand, genere, anno, rating, voti, note, accordi e profumieri, oltre a ordinamento e paginazione. La funzionalità è verificata tramite test automatici di integrazione eseguiti su un database MongoDB separato denominato `scentbase_test`.
+La ricerca del catalogo supporta filtri singoli e combinati per nome, brand, genere, anno, rating, voti, note, accordi e profumieri, oltre a ordinamento e paginazione.
 
-Sono state completate anche le JOIN multi-collection tramite `$lookup`, il dettaglio completo del profumo e le aggregazioni statistiche per profumi, brand e note. Le pipeline sono disponibili sia nel backend Python sia nello script `queries/issue-09-aggregations.js` e sono state verificate sul dataset completo di 24.063 profumi.
+Sono state completate le JOIN multi-collection tramite `$lookup`, il dettaglio completo del profumo e le aggregazioni statistiche per profumi, brand e note. Le pipeline sono disponibili sia nel backend Python sia nello script `queries/issue-09-aggregations.js` e sono state verificate sul dataset completo di 24.063 profumi.
 
-È stata inoltre implementata e verificata sul dataset completo la ricerca di profumi simili basata sulla similarità di Jaccard delle note e degli accordi. La funzionalità preseleziona i candidati che condividono almeno un elemento, applica uno score pesato, esclude il profumo sorgente e restituisce brand, note condivise, accordi condivisi e componenti dello score. La pipeline è disponibile in `backend/app/services/similarity.py` e nello script `queries/issue-10-similar-perfumes.js`. I test automatici e le verifiche manuali confermano il corretto calcolo dello score, l'ordinamento deterministico, la validazione del parametro `limit` e la gestione degli errori `404` e `422`.
+È stata implementata e verificata sul dataset completo anche la ricerca di profumi simili basata sulla similarità di Jaccard delle note e degli accordi. La pipeline è disponibile in `backend/app/services/similarity.py` e nello script `queries/issue-10-similar-perfumes.js`.
 
-Le prossime attività riguarderanno gli indici, i benchmark e lo sviluppo dell’interfaccia utente.
+La gestione degli indici MongoDB è stata completata. Il progetto definisce sei indici gestiti, include comandi per crearli, elencarli e rimuoverli in modo controllato e applica un vincolo univoco parziale su `source_url`.
+
+È stato inoltre completato un benchmark replicabile su sette scenari reali. I risultati grezzi sono conservati in `benchmarks/results/benchmark-results.json`, mentre metodologia, interpretazione e limiti sono descritti in `docs/indexes-and-benchmarks.md`.
+
+Gli indici composti per brand, filtri combinati e classifica dei profumi hanno ridotto di oltre il 99% i documenti esaminati negli scenari associati. Anche gli indici multikey su note e accordi hanno mostrato un beneficio nei filtri isolati. La ricerca di similarità ha invece evidenziato che indici poco selettivi possono aumentare il lavoro sulle chiavi senza migliorare il tempo complessivo.
+
+La suite automatica comprende test per filtri, JOIN, aggregazioni, similarità e gestione degli indici. L’ultima esecuzione ha completato **84 test senza errori** sul database separato `scentbase_test`.
+
+Le prossime attività riguarderanno lo sviluppo dell’interfaccia utente minimale e la preparazione della documentazione e della demo finali.
