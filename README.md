@@ -67,7 +67,7 @@ perfumers
 
 ```text
 brand_id
- top_note_ids
+top_note_ids
 middle_note_ids
 base_note_ids
 all_note_ids
@@ -428,7 +428,7 @@ La ricerca testuale è:
 - sicura rispetto ai caratteri delle espressioni regolari;
 - tollerante rispetto a spazi, trattini e underscore.
 
-Le seguenti ricerche sono quindi equivalenti:
+Le seguenti ricerche sono equivalenti:
 
 ```text
 acqua di
@@ -515,7 +515,7 @@ In caso di duplicato il backend restituisce:
 409 Conflict
 ```
 
-Il controllo riguarda soltanto le richieste CRUD ricevute dall’API. Gli script ETL e di importazione non attraversano il middleware e mantengono il comportamento definito nelle issue dedicate al caricamento del CSV.
+Il controllo riguarda soltanto le richieste CRUD ricevute dall’API. Gli script ETL e di importazione non attraversano il middleware e mantengono il comportamento definito per il caricamento del CSV.
 
 ## JOIN, statistiche e profumi simili
 
@@ -589,7 +589,7 @@ Dalla root del repository:
 python -m pytest -v
 ```
 
-Ultimo risultato verificato:
+Risultato verificato sulla versione documentata:
 
 ```text
 92 passed in 3.48s
@@ -627,12 +627,12 @@ npm run lint
 npm run build
 ```
 
-Ultima verifica locale:
+Risultati verificati sulla versione documentata:
 
 ```text
 ESLint completato senza errori
 Vite build completata senza errori
-0 vulnerabilità rilevate da npm audit durante npm install
+0 vulnerabilità rilevate durante npm install
 ```
 
 Verifica manuale minima:
@@ -688,7 +688,7 @@ Swagger:  http://127.0.0.1:8000/docs
 
 ## Teorema CAP
 
-Il teorema CAP viene discusso esclusivamente dal punto di vista teorico nella documentazione finale. Il progetto non implementa replica set, sharding, partizioni di rete o una rete distribuita simulata.
+Il teorema CAP viene discusso esclusivamente dal punto di vista teorico nella documentazione conclusiva. Il progetto non implementa replica set, sharding, partizioni di rete o una rete distribuita simulata.
 
 ## Documentazione
 
@@ -699,7 +699,7 @@ Il teorema CAP viene discusso esclusivamente dal punto di vista teorico nella do
 
 ## Stato del progetto
 
-Sono stati completati:
+L’implementazione comprende:
 
 - setup MongoDB tramite Docker;
 - modellazione documentale;
@@ -714,7 +714,7 @@ Sono stati completati:
 - frontend React responsive;
 - dashboard, catalogo, dettaglio e form CRUD;
 - configurazione CORS;
-- controlli applicativi sui duplicati;
+- controllo applicativo dei duplicati;
 - test automatici e verifiche frontend.
 
-Restano da completare la revisione finale della Pull Request, l’eventuale revisione esterna richiesta dal flusso del corso e la preparazione della documentazione e della demo conclusiva.
+Il README descrive lo stato funzionale definitivo dell’applicazione e le procedure necessarie per riprodurla, verificarla e avviarla in locale.
