@@ -1,5 +1,5 @@
 import { ArrowRight, Database, FlaskConical, Layers3, Sparkles, Tags } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import PerfumeCard from '../components/PerfumeCard'
@@ -9,15 +9,17 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
-  const load = () => {
+  const load = useCallback(() => {
     setError(null)
     setData(null)
     Promise.all([api.counts(), api.topPerfumes(4), api.brandStats(7), api.noteStats(8)])
       .then(([counts, top, brands, notes]) => setData({ counts, top: top.items, brands: brands.items, notes: notes.items }))
       .catch(setError)
-  }
+  }, [])
 
-  useEffect(load, [])
+  useEffect(() => {
+    load()
+  }, [load])
 
   if (error) return <Page><ErrorState error={error} onRetry={load} /></Page>
   if (!data) return <Page><Loading label="Prepariamo la panoramica olfattiva" /></Page>
