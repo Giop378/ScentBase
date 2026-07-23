@@ -88,6 +88,73 @@ def _first_document_or_none(
     }
 
 
+def _perfume_card_reference_stages() -> Pipeline:
+    """Espande i riferimenti necessari alle card senza introdurre query N+1."""
+    return [
+        {
+            "$lookup": {
+                "from": "brands",
+                "localField": "brand_id",
+                "foreignField": "_id",
+                "as": "_brand_documents",
+            },
+        },
+        {
+            "$lookup": {
+                "from": "accords",
+                "localField": "accord_ids",
+                "foreignField": "_id",
+                "as": "_accord_documents",
+            },
+        },
+        {
+            "$set": {
+                "brand": _first_document_or_none(
+                    "_brand_documents"
+                ),
+                "accords": _ordered_documents(
+                    "accord_ids",
+                    "_accord_documents",
+                ),
+            },
+        },
+        {
+            "$project": {
+                "_brand_documents": 0,
+                "_accord_documents": 0,
+            },
+        },
+    ]
+
+
+def build_perfume_catalog_pipeline(
+    *,
+    query: dict[str, Any],
+    sort_field: str,
+    sort_direction: int,
+    skip: int,
+    limit: int,
+) -> Pipeline:
+    """Costruisce il catalogo paginato con brand e accordi espansi.
+
+    Match, ordinamento e paginazione precedono i ``$lookup``: in questo modo gli
+    indici continuano a supportare la selezione e vengono espansi soltanto i
+    documenti effettivamente mostrati nella pagina corrente.
+    """
+    sort_spec: dict[str, int] = {sort_field: sort_direction}
+
+    if sort_field != "_id":
+        sort_spec["_id"] = 1
+
+    return [
+        {"$match": query},
+        {"$sort": sort_spec},
+        {"$skip": skip},
+        {"$limit": limit},
+        *_perfume_card_reference_stages(),
+    ]
+
+
 def build_perfume_details_pipeline(perfume_id: str) -> Pipeline:
     """Costruisce la pipeline per il dettaglio completo di un profumo."""
     return [
@@ -193,26 +260,7 @@ def build_top_perfumes_pipeline(
         {
             "$limit": limit,
         },
-        {
-            "$lookup": {
-                "from": "brands",
-                "localField": "brand_id",
-                "foreignField": "_id",
-                "as": "_brand_documents",
-            },
-        },
-        {
-            "$set": {
-                "brand": _first_document_or_none(
-                    "_brand_documents"
-                ),
-            },
-        },
-        {
-            "$project": {
-                "_brand_documents": 0,
-            },
-        },
+        *_perfume_card_reference_stages(),
     ]
 
 
