@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import PerfumeCard from '../components/PerfumeCard'
 import { ErrorState, Loading } from '../components/UI'
+import { createReferenceMaps, enrichPerfume, formatDisplayName } from '../utils/display'
 
 export default function Dashboard() {
   const [requestKey, setRequestKey] = useState(0)
@@ -13,10 +14,16 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([api.counts(), api.topPerfumes(4), api.brandStats(7), api.noteStats(8)])
-      .then(([counts, top, brands, notes]) => {
+    Promise.all([api.counts(), api.topPerfumes(4), api.brandStats(7), api.noteStats(8), api.catalogReferences()])
+      .then(([counts, top, brands, notes, references]) => {
         if (!cancelled) {
-          setData({ counts, top: top.items, brands: brands.items, notes: notes.items })
+          const maps = createReferenceMaps(references)
+          setData({
+            counts,
+            top: top.items.map((item) => enrichPerfume(item, maps)),
+            brands: brands.items,
+            notes: notes.items,
+          })
           setError(null)
         }
       })
@@ -48,11 +55,11 @@ export default function Dashboard() {
     </section>
 
     <section className="stats-grid">
-      <Stat icon={FlaskConical} label="Profumi" value={counts?.perfumes} />
-      <Stat icon={Tags} label="Brand" value={counts?.brands} />
-      <Stat icon={Sparkles} label="Note" value={counts?.notes} />
-      <Stat icon={Layers3} label="Accordi" value={counts?.accords} />
-      <Stat icon={Database} label="Profumieri" value={counts?.perfumers} />
+      <Stat icon={FlaskConical} label="Profumi" value={counts?.perfumes} tone="rose" />
+      <Stat icon={Tags} label="Brand" value={counts?.brands} tone="amber" />
+      <Stat icon={Sparkles} label="Note" value={counts?.notes} tone="violet" />
+      <Stat icon={Layers3} label="Accordi" value={counts?.accords} tone="green" />
+      <Stat icon={Database} label="Profumieri" value={counts?.perfumers} tone="blue" />
     </section>
 
     <Section title="Fragranze in evidenza" subtitle="Le migliori valutazioni con almeno 100 voti" action={<Link to="/catalogo?sort_by=rating&sort_order=desc">Vedi catalogo <ArrowRight size={16} /></Link>}>
@@ -60,12 +67,12 @@ export default function Dashboard() {
     </Section>
 
     <div className="analytics-grid">
-      <Section title="Brand più apprezzati" subtitle="Rating medio e ampiezza del catalogo"><div className="rank-list">{data.brands.map((item, index) => <div className="rank-row" key={`brand-${item.brand_id || item._id || item.brand?.name || item.name || 'unknown'}-${index}`}><span className="rank-number">{String(index + 1).padStart(2, '0')}</span><div><strong>{item.brand?.name || item.brand_name || item.name || item.brand_id}</strong><small>{item.perfume_count || item.count} profumi</small></div><b>{Number(item.average_rating || item.avg_rating || 0).toFixed(2)}</b></div>)}</div></Section>
-      <Section title="Note più frequenti" subtitle="Presenza nel catalogo completo"><div className="bar-chart">{data.notes.map((item, index) => { const value = item.perfume_count || item.count || 0; return <div className="bar-row" key={`note-${item.note_id || item._id || item.note?.name || item.note_name || item.name || 'unknown'}-${index}`}><div><span>{item.note?.name || item.note_name || item.name || item.note_id}</span><b>{value.toLocaleString('it-IT')}</b></div><div className="bar-track"><span style={{ width: `${Math.max((value / maxNote) * 100, 3)}%` }} /></div></div> })}</div></Section>
+      <Section title="Brand più apprezzati" subtitle="Rating medio e ampiezza del catalogo"><div className="rank-list">{data.brands.map((item, index) => <div className="rank-row" key={`brand-${item.brand_id || item._id || item.brand?.name || item.name || 'unknown'}-${index}`}><span className="rank-number">{String(index + 1).padStart(2, '0')}</span><div><strong>{formatDisplayName(item.brand?.name || item.brand_name || item.name || item.brand_id)}</strong><small>{item.perfume_count || item.count} profumi</small></div><b>{Number(item.average_rating || item.avg_rating || 0).toFixed(2)}</b></div>)}</div></Section>
+      <Section title="Note più frequenti" subtitle="Presenza nel catalogo completo"><div className="bar-chart">{data.notes.map((item, index) => { const value = item.perfume_count || item.count || 0; return <div className="bar-row" key={`note-${item.note_id || item._id || item.note?.name || item.note_name || item.name || 'unknown'}-${index}`}><div><span>{formatDisplayName(item.note?.name || item.note_name || item.name || item.note_id)}</span><b>{value.toLocaleString('it-IT')}</b></div><div className="bar-track"><span style={{ width: `${Math.max((value / maxNote) * 100, 3)}%` }} /></div></div> })}</div></Section>
     </div>
   </Page>
 }
 
 function Page({ children }) { return <div className="page page-wide">{children}</div> }
-function Stat({ icon: Icon, label, value }) { return <article className="stat-card"><Icon /><div><strong>{Number(value || 0).toLocaleString('it-IT')}</strong><span>{label}</span></div></article> }
+function Stat({ icon: Icon, label, value, tone }) { return <article className={`stat-card tone-${tone}`}><span className="stat-icon"><Icon /></span><div><strong>{Number(value || 0).toLocaleString('it-IT')}</strong><span>{label}</span></div></article> }
 function Section({ title, subtitle, action, children }) { return <section className="section-block"><div className="section-heading"><div><span className="kicker">ScentBase insights</span><h2>{title}</h2><p>{subtitle}</p></div>{action}</div>{children}</section> }
