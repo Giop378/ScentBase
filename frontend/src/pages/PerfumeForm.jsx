@@ -59,7 +59,9 @@ export default function PerfumeForm() {
     arrayFields.forEach(field => { payload[field] = splitIds(form[field]) })
     try {
       const saved = edit ? await api.updatePerfume(id, payload) : await api.createPerfume(payload)
-      navigate(`/profumi/${encodeURIComponent(saved._id)}`)
+      navigate(`/profumi/${encodeURIComponent(saved._id)}`, {
+        state: { notice: edit ? 'Profumo modificato correttamente.' : 'Profumo creato correttamente.' },
+      })
     } catch (currentError) {
       setError(currentError)
     } finally {
