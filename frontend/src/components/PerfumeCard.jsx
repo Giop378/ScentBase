@@ -1,17 +1,43 @@
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { AccordDots, Rating } from './UI'
+import { AccordBadges, Rating } from './UI'
+import { formatDisplayName, formatGender, getAccordColor } from '../utils/display'
 
 export default function PerfumeCard({ perfume }) {
-  const brand = perfume.brand?.name || perfume.brand_name || perfume.brand_id || 'Brand non disponibile'
+  const brand = formatDisplayName(perfume.brand?.name || perfume.brand_name || perfume.brand_id)
+  const name = formatDisplayName(perfume.name)
+  const accords = perfume.accords || []
+  const primaryColor = getAccordColor(accords[0], '#B98A72')
+  const secondaryColor = getAccordColor(accords[1], '#D6B7A3')
+  const cardStyle = {
+    '--primary-accord': primaryColor,
+    '--secondary-accord': secondaryColor,
+  }
+
   return (
-    <article className="perfume-card">
-      <div className="bottle-art" aria-hidden="true"><div className="bottle-cap" /><div className="bottle-body"><span>{perfume.name?.slice(0, 1)}</span></div></div>
+    <article className="perfume-card" style={cardStyle}>
+      <div className="bottle-art" aria-hidden="true">
+        <div className="bottle-glow" />
+        <div className="bottle-cap" />
+        <div className="bottle-body">
+          <div className="bottle-liquid" />
+          <span>{name.slice(0, 1).toLocaleUpperCase('it-IT')}</span>
+        </div>
+      </div>
       <div className="perfume-card-content">
-        <div className="eyebrow-row"><span>{brand}</span><span>{perfume.gender || '—'}</span></div>
-        <h3>{perfume.name}</h3>
-        <div className="card-meta"><span>{perfume.year || 'Anno n.d.'}</span><Rating value={perfume.rating} votes={perfume.votes} /></div>
-        <div className="card-bottom"><AccordDots accords={perfume.accords} ids={perfume.accord_ids} /><Link to={`/profumi/${encodeURIComponent(perfume._id)}`} aria-label={`Apri ${perfume.name}`}><ArrowUpRight /></Link></div>
+        <div className="eyebrow-row">
+          <span className="brand-name">{brand}</span>
+          <span className="gender-badge">{formatGender(perfume.gender)}</span>
+        </div>
+        <h3 title={name}>{name}</h3>
+        <div className="card-meta">
+          <span>{perfume.year || 'Anno n.d.'}</span>
+          <Rating value={perfume.rating} votes={perfume.votes} />
+        </div>
+        <AccordBadges accords={accords} />
+        <Link className="details-link" to={`/profumi/${encodeURIComponent(perfume._id)}`} aria-label={`Apri ${name}`}>
+          Dettagli <ArrowRight size={16} />
+        </Link>
       </div>
     </article>
   )
