@@ -1,5 +1,5 @@
 import { ArrowLeft, Edit3, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import PerfumeCard from '../components/PerfumeCard'
@@ -13,21 +13,23 @@ export default function PerfumeDetail() {
   const [error, setError] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  const load = () => {
+  const load = useCallback(() => {
     setError(null)
     Promise.all([api.details(id), api.similar(id, 4)])
       .then(([detail, sim]) => { setData(detail); setSimilar(sim.items || []) })
       .catch(setError)
-  }
+  }, [id])
 
-  useEffect(load, [id])
+  useEffect(() => {
+    load()
+  }, [load])
 
   const remove = async () => {
     if (!window.confirm(`Eliminare definitivamente “${data.name}”?`)) return
     setDeleting(true)
     try {
       await api.deletePerfume(id)
-      navigate('/catalogo')
+      navigate('/catalogo', { state: { notice: 'Profumo eliminato correttamente.' } })
     } catch (currentError) {
       setError(currentError)
       setDeleting(false)
