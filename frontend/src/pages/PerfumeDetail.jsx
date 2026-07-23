@@ -1,5 +1,5 @@
 import { ArrowLeft, Edit3, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import PerfumeCard from '../components/PerfumeCard'
@@ -9,21 +9,38 @@ export default function PerfumeDetail() {
   const { id } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
+  const [requestKey, setRequestKey] = useState(0)
   const [data, setData] = useState(null)
   const [similar, setSimilar] = useState([])
   const [error, setError] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  const load = useCallback(() => {
-    setError(null)
-    Promise.all([api.details(id), api.similar(id, 4)])
-      .then(([detail, sim]) => { setData(detail); setSimilar(sim.items || []) })
-      .catch(setError)
-  }, [id])
-
   useEffect(() => {
-    load()
-  }, [load])
+    let cancelled = false
+
+    Promise.all([api.details(id), api.similar(id, 4)])
+      .then(([detail, sim]) => {
+        if (!cancelled) {
+          setData(detail)
+          setSimilar(sim.items || [])
+          setError(null)
+        }
+      })
+      .catch((currentError) => {
+        if (!cancelled) setError(currentError)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [id, requestKey])
+
+  const retry = () => {
+    setData(null)
+    setSimilar([])
+    setError(null)
+    setRequestKey((value) => value + 1)
+  }
 
   const remove = async () => {
     if (!window.confirm(`Eliminare definitivamente “${data.name}”?`)) return
@@ -37,7 +54,7 @@ export default function PerfumeDetail() {
     }
   }
 
-  if (error) return <div className="page"><ErrorState error={error} onRetry={load} /></div>
+  if (error) return <div className="page"><ErrorState error={error} onRetry={retry} /></div>
   if (!data) return <div className="page"><Loading label="Ricostruiamo il profilo olfattivo" /></div>
 
   const brand = data.brand?.name || data.brand_id
