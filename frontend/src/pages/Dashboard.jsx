@@ -1,27 +1,41 @@
 import { ArrowRight, Database, FlaskConical, Layers3, Sparkles, Tags } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import PerfumeCard from '../components/PerfumeCard'
 import { ErrorState, Loading } from '../components/UI'
 
 export default function Dashboard() {
+  const [requestKey, setRequestKey] = useState(0)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
-  const load = useCallback(() => {
-    setError(null)
-    setData(null)
-    Promise.all([api.counts(), api.topPerfumes(4), api.brandStats(7), api.noteStats(8)])
-      .then(([counts, top, brands, notes]) => setData({ counts, top: top.items, brands: brands.items, notes: notes.items }))
-      .catch(setError)
-  }, [])
-
   useEffect(() => {
-    load()
-  }, [load])
+    let cancelled = false
 
-  if (error) return <Page><ErrorState error={error} onRetry={load} /></Page>
+    Promise.all([api.counts(), api.topPerfumes(4), api.brandStats(7), api.noteStats(8)])
+      .then(([counts, top, brands, notes]) => {
+        if (!cancelled) {
+          setData({ counts, top: top.items, brands: brands.items, notes: notes.items })
+          setError(null)
+        }
+      })
+      .catch((currentError) => {
+        if (!cancelled) setError(currentError)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [requestKey])
+
+  const retry = () => {
+    setData(null)
+    setError(null)
+    setRequestKey((value) => value + 1)
+  }
+
+  if (error) return <Page><ErrorState error={error} onRetry={retry} /></Page>
   if (!data) return <Page><Loading label="Prepariamo la panoramica olfattiva" /></Page>
 
   const counts = data.counts?.collections || data.counts
