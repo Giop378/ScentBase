@@ -13,34 +13,42 @@ from backend.app.serializers import serialize_documents
 router = APIRouter(prefix="/references", tags=["references"])
 
 
+def _lightweight_references(
+    collection_name: str,
+    projection: dict[str, int],
+) -> list[dict[str, Any]]:
+    """Restituisce riferimenti ordinati e limitati ai campi utili alla UI."""
+    db = get_database()
+    return serialize_documents(
+        list(
+            db[collection_name].find({}, projection).sort("name", 1)
+        )
+    )
+
+
 @router.get("/catalog")
 def get_catalog_references() -> dict[str, list[dict[str, Any]]]:
-    """Restituisce i dati leggeri necessari a presentare le card del catalogo.
+    """Restituisce i riferimenti necessari a card, filtri e form CRUD.
 
-    Brand e accordi vengono caricati con una sola richiesta e riutilizzati dal
-    frontend. In questo modo si evitano richieste N+1 per ogni profumo, mentre
-    gli identificativi presenti nei documenti MongoDB restano invariati.
+    Il frontend mostra nomi leggibili ma conserva e invia gli identificativi
+    originali. Tutte le collection collegate vengono caricate con una sola
+    richiesta, evitando query N+1 e l'inserimento manuale di ID tecnici.
     """
-    db = get_database()
-
-    brands = serialize_documents(
-        list(
-            db["brands"].find(
-                {},
-                {"_id": 1, "name": 1},
-            ).sort("name", 1)
-        )
-    )
-    accords = serialize_documents(
-        list(
-            db["accords"].find(
-                {},
-                {"_id": 1, "name": 1, "color_hex": 1},
-            ).sort("name", 1)
-        )
-    )
-
     return {
-        "brands": brands,
-        "accords": accords,
+        "brands": _lightweight_references(
+            "brands",
+            {"_id": 1, "name": 1},
+        ),
+        "notes": _lightweight_references(
+            "notes",
+            {"_id": 1, "name": 1},
+        ),
+        "accords": _lightweight_references(
+            "accords",
+            {"_id": 1, "name": 1, "color_hex": 1},
+        ),
+        "perfumers": _lightweight_references(
+            "perfumers",
+            {"_id": 1, "name": 1},
+        ),
     }
