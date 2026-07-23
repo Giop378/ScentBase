@@ -66,9 +66,24 @@ def normalize_search_text(value: str, parameter_name: str) -> str:
 
 
 def partial_case_insensitive_match(value: str) -> dict[str, Any]:
-    """Costruisce una ricerca parziale case-insensitive sicura per MongoDB."""
+    """Costruisce una ricerca parziale sicura e tollerante ai separatori.
+
+    Spazi, trattini e underscore sono considerati equivalenti, mentre tutti gli
+    altri caratteri inseriti dall'utente vengono trattati letteralmente.
+    """
+    search_terms = [
+        term
+        for term in re.split(r"[-_\s]+", value)
+        if term
+    ]
+    pattern = (
+        r"[-_\s]+".join(re.escape(term) for term in search_terms)
+        if search_terms
+        else re.escape(value)
+    )
+
     return {
-        "$regex": re.escape(value),
+        "$regex": pattern,
         "$options": "i",
     }
 
