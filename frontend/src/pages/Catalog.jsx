@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Filter, RotateCcw, Search, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import PerfumeCard from '../components/PerfumeCard'
 import { EmptyState, ErrorState, Loading } from '../components/UI'
@@ -10,9 +10,9 @@ const PAGE_SIZE = 12
 
 export default function Catalog() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const initial = useMemo(() => ({ ...defaults, ...Object.fromEntries(searchParams.entries()) }), [])
-  const [draft, setDraft] = useState(initial)
-  const [filters, setFilters] = useState(initial)
+  const location = useLocation()
+  const [draft, setDraft] = useState(() => ({ ...defaults, ...Object.fromEntries(searchParams.entries()) }))
+  const [filters, setFilters] = useState(() => ({ ...defaults, ...Object.fromEntries(searchParams.entries()) }))
   const [page, setPage] = useState(1)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
@@ -43,6 +43,7 @@ export default function Catalog() {
   const totalPages = Math.max(Math.ceil((result?.total || 0) / PAGE_SIZE), 1)
 
   return <div className="page page-wide">
+    {location.state?.notice && <div className="notice success-notice" role="status">{location.state.notice}</div>}
     <div className="page-title-row"><div><span className="kicker">24.000+ fragranze</span><h1>Catalogo</h1><p>Combina liberamente i criteri per trovare il profumo che cerchi.</p></div><button className="button secondary mobile-filter" onClick={() => setFilterOpen(!filterOpen)}><SlidersHorizontal size={17} /> Filtri</button></div>
     <div className="catalog-layout">
       <aside className={filterOpen ? 'filters-panel open' : 'filters-panel'}><form onSubmit={submit}>
