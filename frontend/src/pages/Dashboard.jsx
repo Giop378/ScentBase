@@ -56,12 +56,12 @@ export default function Dashboard() {
     </section>
 
     <Section title="Fragranze in evidenza" subtitle="Le migliori valutazioni con almeno 100 voti" action={<Link to="/catalogo?sort_by=rating&sort_order=desc">Vedi catalogo <ArrowRight size={16} /></Link>}>
-      <div className="perfume-grid compact">{data.top.map((item) => <PerfumeCard key={item._id} perfume={item} />)}</div>
+      <div className="perfume-grid compact">{data.top.map((item, index) => <PerfumeCard key={`top-${item._id || index}`} perfume={item} />)}</div>
     </Section>
 
     <div className="analytics-grid">
-      <Section title="Brand più apprezzati" subtitle="Rating medio e ampiezza del catalogo"><div className="rank-list">{data.brands.map((item, i) => <div className="rank-row" key={item.brand_id || item._id || i}><span className="rank-number">{String(i + 1).padStart(2, '0')}</span><div><strong>{item.brand?.name || item.brand_name || item.name || item.brand_id}</strong><small>{item.perfume_count || item.count} profumi</small></div><b>{Number(item.average_rating || item.avg_rating || 0).toFixed(2)}</b></div>)}</div></Section>
-      <Section title="Note più frequenti" subtitle="Presenza nel catalogo completo"><div className="bar-chart">{data.notes.map((item) => { const value = item.perfume_count || item.count || 0; return <div className="bar-row" key={item.note_id || item._id}><div><span>{item.note?.name || item.note_name || item.name || item.note_id}</span><b>{value.toLocaleString('it-IT')}</b></div><div className="bar-track"><span style={{ width: `${Math.max((value / maxNote) * 100, 3)}%` }} /></div></div> })}</div></Section>
+      <Section title="Brand più apprezzati" subtitle="Rating medio e ampiezza del catalogo"><div className="rank-list">{data.brands.map((item, index) => <div className="rank-row" key={`brand-${item.brand_id || item._id || item.brand?.name || item.name || 'unknown'}-${index}`}><span className="rank-number">{String(index + 1).padStart(2, '0')}</span><div><strong>{item.brand?.name || item.brand_name || item.name || item.brand_id}</strong><small>{item.perfume_count || item.count} profumi</small></div><b>{Number(item.average_rating || item.avg_rating || 0).toFixed(2)}</b></div>)}</div></Section>
+      <Section title="Note più frequenti" subtitle="Presenza nel catalogo completo"><div className="bar-chart">{data.notes.map((item, index) => { const value = item.perfume_count || item.count || 0; return <div className="bar-row" key={`note-${item.note_id || item._id || item.note?.name || item.note_name || item.name || 'unknown'}-${index}`}><div><span>{item.note?.name || item.note_name || item.name || item.note_id}</span><b>{value.toLocaleString('it-IT')}</b></div><div className="bar-track"><span style={{ width: `${Math.max((value / maxNote) * 100, 3)}%` }} /></div></div> })}</div></Section>
     </div>
   </Page>
 }
