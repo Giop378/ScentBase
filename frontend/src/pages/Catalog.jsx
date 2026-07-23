@@ -19,14 +19,29 @@ export default function Catalog() {
   const [filterOpen, setFilterOpen] = useState(false)
 
   useEffect(() => {
-    setError(null)
-    setResult(null)
-    api.perfumes({ ...filters, limit: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE }).then(setResult).catch(setError)
+    let cancelled = false
+
+    api.perfumes({ ...filters, limit: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE })
+      .then((data) => {
+        if (!cancelled) {
+          setResult(data)
+          setError(null)
+        }
+      })
+      .catch((currentError) => {
+        if (!cancelled) setError(currentError)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [filters, page])
 
   const submit = (event) => {
     event.preventDefault()
     const clean = Object.fromEntries(Object.entries(draft).filter(([, value]) => value !== ''))
+    setResult(null)
+    setError(null)
     setSearchParams(clean)
     setFilters({ ...defaults, ...clean })
     setPage(1)
@@ -34,10 +49,27 @@ export default function Catalog() {
   }
 
   const reset = () => {
+    setResult(null)
+    setError(null)
     setDraft(defaults)
     setFilters(defaults)
     setSearchParams({})
     setPage(1)
+  }
+
+  const changeSort = (key, value) => {
+    const next = { ...draft, [key]: value }
+    setResult(null)
+    setError(null)
+    setDraft(next)
+    setFilters(next)
+    setPage(1)
+  }
+
+  const retry = () => {
+    setResult(null)
+    setError(null)
+    setFilters({ ...filters })
   }
 
   const totalPages = Math.max(Math.ceil((result?.total || 0) / PAGE_SIZE), 1)
@@ -61,9 +93,9 @@ export default function Catalog() {
       </form></aside>
 
       <section className="catalog-results">
-        <div className="results-toolbar"><div><strong>{result?.total?.toLocaleString('it-IT') || '—'}</strong><span> risultati</span></div><div className="sort-controls"><select value={draft.sort_by} onChange={e => { const next = { ...draft, sort_by: e.target.value }; setDraft(next); setFilters(next); setPage(1) }}><option value="rating">Rating</option><option value="votes">Voti</option><option value="name">Nome</option><option value="year">Anno</option></select><select value={draft.sort_order} onChange={e => { const next = { ...draft, sort_order: e.target.value }; setDraft(next); setFilters(next); setPage(1) }}><option value="desc">Decrescente</option><option value="asc">Crescente</option></select></div></div>
-        {error ? <ErrorState error={error} onRetry={() => setFilters({ ...filters })} /> : !result ? <Loading label="Cerchiamo nel catalogo" /> : result.items.length === 0 ? <EmptyState /> : <div className="perfume-grid">{result.items.map(p => <PerfumeCard key={p._id} perfume={p} />)}</div>}
-        {result?.total > PAGE_SIZE && <div className="pagination"><button disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft /> Precedente</button><span>Pagina <strong>{page}</strong> di {totalPages}</span><button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Successiva <ChevronRight /></button></div>}
+        <div className="results-toolbar"><div><strong>{result?.total?.toLocaleString('it-IT') || '—'}</strong><span> risultati</span></div><div className="sort-controls"><select value={draft.sort_by} onChange={e => changeSort('sort_by', e.target.value)}><option value="rating">Rating</option><option value="votes">Voti</option><option value="name">Nome</option><option value="year">Anno</option></select><select value={draft.sort_order} onChange={e => changeSort('sort_order', e.target.value)}><option value="desc">Decrescente</option><option value="asc">Crescente</option></select></div></div>
+        {error ? <ErrorState error={error} onRetry={retry} /> : !result ? <Loading label="Cerchiamo nel catalogo" /> : result.items.length === 0 ? <EmptyState /> : <div className="perfume-grid">{result.items.map(p => <PerfumeCard key={p._id} perfume={p} />)}</div>}
+        {result?.total > PAGE_SIZE && <div className="pagination"><button disabled={page === 1} onClick={() => { setResult(null); setPage(p => p - 1) }}><ChevronLeft /> Precedente</button><span>Pagina <strong>{page}</strong> di {totalPages}</span><button disabled={page === totalPages} onClick={() => { setResult(null); setPage(p => p + 1) }}>Successiva <ChevronRight /></button></div>}
       </section>
     </div>
   </div>
