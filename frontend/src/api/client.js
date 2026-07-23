@@ -41,6 +41,7 @@ export async function apiRequest(path, options = {}) {
 
 export const api = {
   counts: () => apiRequest('/collections/counts'),
+  catalogReferences: () => apiRequest('/references/catalog'),
   perfumes: (params) => apiRequest('/perfumes', { params }),
   perfume: (id) => apiRequest(`/perfumes/${encodeURIComponent(id)}`),
   details: (id) => apiRequest(`/perfumes/${encodeURIComponent(id)}/details`),
