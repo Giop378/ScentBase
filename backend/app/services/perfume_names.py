@@ -47,15 +47,18 @@ def perfume_identity(document: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
-def ensure_no_duplicate_perfume(document: dict[str, Any]) -> None:
-    """Rifiuta solo un profumo con la stessa firma applicativa.
+def ensure_no_duplicate_perfume(
+    document: dict[str, Any],
+    *,
+    excluded_perfume_id: str | None = None,
+) -> None:
+    """Rifiuta soltanto un profumo con la stessa firma applicativa.
 
-    La ricerca del nome è esatta ma case-insensitive. Un profumo con lo stesso
-    nome resta quindi ammesso quando differisce per brand, genere, anno, note,
-    accordi o profumieri, come nel caso di una variante o riformulazione.
+    Il controllo è destinato al CRUD manuale. Non viene usato dagli script ETL
+    e non modifica le regole di trasformazione o importazione del dataset CSV.
     """
     name = re.sub(r"\s+", " ", str(document.get("name") or "")).strip()
-    query = {
+    query: dict[str, Any] = {
         "name": {
             "$regex": f"^{re.escape(name)}$",
             "$options": "i",
@@ -64,6 +67,9 @@ def ensure_no_duplicate_perfume(document: dict[str, Any]) -> None:
         "gender": document.get("gender"),
         "year": document.get("year"),
     }
+
+    if excluded_perfume_id is not None:
+        query["_id"] = {"$ne": excluded_perfume_id}
 
     projection = {
         "name": 1,
