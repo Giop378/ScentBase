@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.duplicate_guard import PerfumeDuplicateGuardMiddleware
 from backend.app.routers import (
     collections,
     health,
@@ -19,6 +20,10 @@ app = FastAPI(
     description="Backend API for the ScentBase MongoDB proof of concept.",
     version="0.1.0",
 )
+
+# Il controllo dei duplicati riguarda esclusivamente le scritture CRUD ricevute
+# dall'API. Gli script ETL/import non attraversano questo middleware.
+app.add_middleware(PerfumeDuplicateGuardMiddleware)
 
 allowed_origins = [
     origin.strip()
