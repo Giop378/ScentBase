@@ -21,7 +21,7 @@ export function AccordDots({ accords = [], ids = [] }) {
   return <div className="accord-dots" aria-label="Accordi principali">{source.slice(0, 5).map((accord, index) => <span key={accord._id || index} style={{ background: accord.hex_color || accord.color || fallbackColor(accord._id || String(index)) }} title={accord.name || accord._id} />)}</div>
 }
 
-export function fallbackColor(seed = '') {
+function fallbackColor(seed = '') {
   const palette = ['#b56d5d', '#d6a767', '#7f8e6a', '#7b6b8d', '#a98c72', '#557d7a']
   return palette[[...seed].reduce((sum, c) => sum + c.charCodeAt(0), 0) % palette.length]
 }
