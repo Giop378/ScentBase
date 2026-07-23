@@ -1,12 +1,13 @@
 import { ArrowLeft, Edit3, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import PerfumeCard from '../components/PerfumeCard'
 import { AccordDots, ErrorState, Loading, Rating } from '../components/UI'
 
 export default function PerfumeDetail() {
   const { id } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [similar, setSimilar] = useState([])
@@ -42,6 +43,7 @@ export default function PerfumeDetail() {
   const brand = data.brand?.name || data.brand_id
 
   return <div className="page page-wide detail-page">
+    {location.state?.notice && <div className="notice success-notice" role="status">{location.state.notice}</div>}
     <Link className="back-link" to="/catalogo"><ArrowLeft size={16} /> Torna al catalogo</Link>
     <section className="detail-hero">
       <div className="detail-bottle"><div className="bottle-art large"><div className="bottle-cap" /><div className="bottle-body"><span>{data.name?.slice(0, 1)}</span></div></div><AccordDots accords={data.accords} ids={data.accord_ids} /></div>
