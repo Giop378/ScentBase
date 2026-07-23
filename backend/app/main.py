@@ -9,6 +9,7 @@ from backend.app.routers import (
     collections,
     health,
     perfumes,
+    references,
     statistics,
 )
 
@@ -39,6 +40,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(collections.router)
 app.include_router(perfumes.router)
+app.include_router(references.router)
 app.include_router(statistics.router)
 
 
