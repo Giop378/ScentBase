@@ -4,6 +4,7 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import PerfumeCard from '../components/PerfumeCard'
 import { EmptyState, ErrorState, Loading } from '../components/UI'
+import { createReferenceMaps, enrichPerfume } from '../utils/display'
 
 const defaults = { name: '', brand: '', gender: '', year_min: '', year_max: '', rating_min: '', rating_max: '', votes_min: '', note: '', accord: '', perfumer: '', sort_by: 'rating', sort_order: 'desc' }
 const PAGE_SIZE = 12
@@ -21,10 +22,14 @@ export default function Catalog() {
   useEffect(() => {
     let cancelled = false
 
-    api.perfumes({ ...filters, limit: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE })
-      .then((data) => {
+    Promise.all([
+      api.perfumes({ ...filters, limit: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE }),
+      api.catalogReferences(),
+    ])
+      .then(([data, references]) => {
         if (!cancelled) {
-          setResult(data)
+          const maps = createReferenceMaps(references)
+          setResult({ ...data, items: data.items.map((item) => enrichPerfume(item, maps)) })
           setError(null)
         }
       })
@@ -87,7 +92,7 @@ export default function Catalog() {
         <div className="field-pair"><Field label="Rating da"><input type="number" step="0.1" min="0" max="5" value={draft.rating_min} onChange={e => setDraft({ ...draft, rating_min: e.target.value })} /></Field><Field label="a"><input type="number" step="0.1" min="0" max="5" value={draft.rating_max} onChange={e => setDraft({ ...draft, rating_max: e.target.value })} /></Field></div>
         <Field label="Voti minimi"><input type="number" min="0" value={draft.votes_min} onChange={e => setDraft({ ...draft, votes_min: e.target.value })} /></Field>
         <Field label="Nota"><input value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} placeholder="es. Bergamot" /></Field>
-        <Field label="Accordo"><input value={draft.accord} onChange={e => setDraft({ ...draft, accord: e.target.value })} placeholder="es. woody" /></Field>
+        <Field label="Accordo"><input value={draft.accord} onChange={e => setDraft({ ...draft, accord: e.target.value })} placeholder="es. Woody" /></Field>
         <Field label="Profumiere"><input value={draft.perfumer} onChange={e => setDraft({ ...draft, perfumer: e.target.value })} /></Field>
         <button className="button primary full" type="submit"><Search size={17} /> Applica filtri</button>
       </form></aside>
