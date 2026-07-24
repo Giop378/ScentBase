@@ -1,80 +1,59 @@
 # ScentBase
 
-Sistema NoSQL per la gestione e l’analisi di profumi, note olfattive, accordi, profumieri e valutazioni.
+ScentBase è una proof of concept NoSQL per la consultazione, la gestione e l’analisi di un catalogo di profumi.
 
-## Tipologia
+Il progetto utilizza MongoDB per modellare profumi, brand, note olfattive, accordi e profumieri; FastAPI espone le funzionalità applicative, mentre un frontend React/Vite permette di esplorare il catalogo, applicare filtri, consultare statistiche ed eseguire le operazioni CRUD sui profumi.
 
-Progetto NoSQL classico basato su MongoDB.
+## Funzionalità principali
 
-## Obiettivo
+- modellazione documentale su cinque collection MongoDB;
+- pipeline ETL riproducibile dal CSV ai documenti JSON;
+- caricamento e verifica automatica del dataset;
+- ricerca con filtri combinabili, ordinamento e paginazione;
+- JOIN multi-collection tramite `$lookup`;
+- creazione, modifica ed eliminazione dei profumi;
+- controllo applicativo dei duplicati nelle scritture CRUD manuali;
+- ricerca di profumi simili tramite indice di Jaccard su note e accordi;
+- aggregazioni statistiche per profumi, brand e note;
+- gestione e benchmark degli indici MongoDB;
+- interfaccia React responsive con dashboard, catalogo, dettaglio e form CRUD.
 
-Il progetto ha l’obiettivo di realizzare una proof of concept per importare, modellare e interrogare un dataset relativo a profumi e fragranze.
+## Tecnologie
 
-Il sistema prevede:
-
-* modellazione dei dati in collection MongoDB;
-* pipeline ETL per trasformare il dataset in documenti JSON e importarli in MongoDB;
-* operazioni CRUD;
-* query di ricerca e aggregazione;
-* JOIN tra collection tramite `$lookup`;
-* utilizzo di indici;
-* interfaccia utente minimale.
+- **Database:** MongoDB
+- **Backend:** Python, FastAPI, PyMongo e Pydantic
+- **Frontend:** React, Vite e React Router
+- **Ambiente locale:** Docker Compose
+- **Test:** pytest ed ESLint
 
 ## Struttura del progetto
 
 ```text
 .github/                              Template per issue e pull request
 backend/                              Backend FastAPI
-backend/app/indexes.py                Definizione centralizzata degli indici MongoDB
-frontend/                             Interfaccia utente minimale
-benchmarks/run_benchmarks.py          Benchmark replicabile con e senza indici
+backend/app/duplicate_guard.py        Controllo duplicati per il CRUD manuale
+backend/app/indexes.py                Definizione centralizzata degli indici
+backend/app/routers/                  Endpoint REST
+backend/app/services/                 Aggregazioni, similarità e servizi applicativi
+benchmarks/run_benchmarks.py          Benchmark con e senza indici
 benchmarks/results/                   Risultati grezzi dei benchmark
 data/raw/                             Dataset sorgente
-data/enrichment/                      Valori distinti e mapping di arricchimento
-data/processed/                       Documenti JSON generati dalla trasformazione
-db/schema/                            Schemi preliminari delle collection MongoDB
+data/enrichment/                      Mapping di arricchimento e valori canonici
+data/processed/                       Documenti JSON prodotti dall’ETL
+db/schema/                            Schemi delle collection MongoDB
 docs/modeling.md                      Scelte di modellazione documentale
-docs/etl.md                           Pipeline di estrazione, trasformazione e caricamento
-docs/queries.md                       JOIN, aggregazioni statistiche e ricerca di profumi simili
-docs/indexes-and-benchmarks.md        Progettazione degli indici e analisi dei benchmark
-queries/                              Query MongoDB e aggregation pipeline
-scripts/                              Script di estrazione, trasformazione, importazione e verifica
-scripts/manage_indexes.py             Creazione, elenco e rimozione degli indici gestiti
-tests/                                Test automatici di integrazione del backend
-tests/test_indexes.py                 Test automatici sulla gestione degli indici
-pytest.ini                            Configurazione di pytest
+docs/etl.md                           Pipeline ETL
+docs/queries.md                       JOIN, aggregazioni e similarità
+docs/indexes-and-benchmarks.md        Indici e risultati dei benchmark
+frontend/                             Applicazione React/Vite
+queries/                              Pipeline MongoDB versionate
+scripts/                              Script ETL, importazione, verifica e indici
+tests/                                Test automatici del backend
 ```
 
-## Prerequisiti
+## Modello dati
 
-Per eseguire il progetto in locale sono necessari:
-
-* Python 3.10 o versione compatibile;
-* Docker e Docker Compose;
-* un ambiente Python locale, ad esempio Conda;
-* le dipendenze indicate in `requirements.txt`.
-
-Se si usa Conda, attivare prima l’ambiente dedicato:
-
-```bash
-conda activate bd2-scentbase
-```
-
-Installare poi le dipendenze Python:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Modellazione dati
-
-La modellazione documentale è descritta nel file:
-
-```text
-docs/modeling.md
-```
-
-Il modello prevede cinque collection principali:
+Il database contiene cinque collection principali:
 
 ```text
 perfumes
@@ -84,32 +63,53 @@ accords
 perfumers
 ```
 
-La collection centrale è `perfumes`, che contiene i riferimenti verso le altre collection tramite identificativi condivisi.
-
-Gli schemi preliminari delle collection sono disponibili nella cartella:
+`perfumes` è la collection centrale e contiene riferimenti verso le altre collection attraverso identificativi condivisi:
 
 ```text
-db/schema/
+brand_id
+top_note_ids
+middle_note_ids
+base_note_ids
+all_note_ids
+accord_ids
+perfumer_ids
 ```
 
-Gli schemi descrivono la struttura dei documenti MongoDB e sono usati come riferimento per trasformazione, importazione, query e sviluppo dell’applicazione.
+Le entità collegate sono mantenute in collection separate perché brand, note, accordi e profumieri possono essere condivisi da molti profumi e interrogati autonomamente.
 
-## Dataset
+La modellazione completa è descritta in [docs/modeling.md](docs/modeling.md).
 
-Il dataset principale previsto per il progetto è:
+### Nomi leggibili e identificativi tecnici
+
+I campi `name` conservano il valore leggibile proveniente dal dataset. La normalizzazione tecnica in forma prefissata viene applicata agli identificativi delle collection collegate, ad esempio:
+
+```text
+brand_dior
+note_white_musk
+accord_warm_spicy
+perfumer_alberto_morillas
+```
+
+Per i profumi importati, `_id` viene generato a partire da `source_url`, perché il nome non è completamente univoco.
+
+Alcuni nomi presenti nel CSV sorgente contengono già trattini, ad esempio `acqua-di-gio-profondo`. Questi valori vengono conservati nel database; l’interfaccia li mostra in forma leggibile e la ricerca considera equivalenti spazi, trattini e underscore.
+
+## Dataset e pipeline ETL
+
+Il dataset principale è:
 
 ```text
 data/raw/fra_cleaned.csv
 ```
 
-Il file contiene dati relativi a profumi, brand, paese del brand, genere, rating, numero di valutazioni, anno, note olfattive, profumieri e accordi principali.
-
-## Pipeline ETL
-
-La pipeline di estrazione, arricchimento, trasformazione e caricamento è descritta nel file:
+La pipeline produce:
 
 ```text
-docs/etl.md
+data/processed/perfumes.json
+data/processed/brands.json
+data/processed/notes.json
+data/processed/accords.json
+data/processed/perfumers.json
 ```
 
 Gli script principali sono:
@@ -121,140 +121,11 @@ scripts/import_to_mongodb.py
 scripts/verify_mongodb_import.py
 ```
 
-Il primo script estrae note, accordi e profumieri distinti dal dataset e salva i risultati in:
+La pipeline completa è documentata in [docs/etl.md](docs/etl.md).
 
-```text
-data/enrichment/
-```
+### Conteggi attesi
 
-Il secondo script valida i mapping di arricchimento, applica il mapping canonico, controlla gli identificativi generati e produce i documenti JSON finali in:
-
-```text
-data/processed/
-```
-
-Il terzo script importa in MongoDB i documenti JSON generati.
-
-Il quarto script verifica che l’importazione in MongoDB sia coerente, controllando conteggi, identificativi e riferimenti tra collection.
-
-File JSON generati dalla trasformazione:
-
-```text
-data/processed/perfumes.json
-data/processed/brands.json
-data/processed/notes.json
-data/processed/accords.json
-data/processed/perfumers.json
-```
-
-## Esecuzione della pipeline ETL
-
-Dopo aver predisposto il dataset in `data/raw/fra_cleaned.csv`, eseguire l’estrazione dei valori distinti:
-
-```bash
-python scripts/extract_distinct_values.py
-```
-
-Poi eseguire la trasformazione:
-
-```bash
-python scripts/transform_dataset.py
-```
-
-La trasformazione verifica, tra le altre cose:
-
-* corrispondenza tra valori distinti del dataset e mapping di arricchimento;
-* assenza di chiavi mancanti, chiavi extra e valori non validi nei mapping;
-* collisioni di `_id` dopo la normalizzazione tecnica;
-* unicità degli `_id` finali;
-* presenza e unicità di `source_url` per i profumi importati dal dataset;
-* validità dei riferimenti verso le collection collegate.
-
-## Avvio MongoDB con Docker
-
-Il progetto utilizza Docker per avviare MongoDB in locale.
-
-Creare un file `.env` a partire dal file di esempio:
-
-```bash
-cp .env.example .env
-```
-
-Su PowerShell, in alternativa:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Avviare MongoDB:
-
-```bash
-docker compose up -d
-```
-
-Verificare lo stato del container:
-
-```bash
-docker compose ps
-```
-
-Visualizzare i log del servizio MongoDB:
-
-```bash
-docker compose logs mongodb
-```
-
-Fermare MongoDB:
-
-```bash
-docker compose down
-```
-
-Fermare MongoDB rimuovendo anche il volume dati:
-
-```bash
-docker compose down -v
-```
-
-## Importazione dati in MongoDB
-
-Dopo aver generato i file JSON in `data/processed/`, importare i dati in MongoDB con:
-
-```bash
-python scripts/import_to_mongodb.py --reset
-```
-
-L’opzione `--reset` elimina le collection target prima dell’importazione, permettendo di rigenerare il database locale da zero.
-
-L’ordine di importazione è:
-
-```text
-brands
-notes
-accords
-perfumers
-perfumes
-```
-
-La collection `perfumes` viene importata per ultima perché contiene riferimenti verso le altre collection.
-
-## Verifica importazione MongoDB
-
-Dopo l’importazione, verificare il caricamento con:
-
-```bash
-python scripts/verify_mongodb_import.py
-```
-
-La verifica controlla:
-
-* conteggio dei documenti importati per collection;
-* unicità degli `_id`;
-* presenza e unicità di `source_url` in `perfumes`;
-* validità degli array di riferimenti nei documenti `perfumes`;
-* validità dei riferimenti verso `brands`, `notes`, `accords` e `perfumers`.
-
-Conteggi attesi dopo l’importazione del dataset completo:
+Dopo l’importazione del dataset completo:
 
 ```text
 perfumes: 24063
@@ -264,643 +135,44 @@ accords: 84
 perfumers: 905
 ```
 
-L’ultima verifica eseguita ha prodotto:
+La verifica deve terminare con zero duplicati, riferimenti non validi o errori complessivi.
 
-```text
-Duplicate _id values: 0
-Duplicate source_url values: 0
-Invalid perfume array fields: 0
-Invalid brand references: 0
-Invalid note references: 0
-Invalid accord references: 0
-Invalid perfumer references: 0
-Total errors: 0
-```
+## Prerequisiti
 
-## Backend FastAPI
+Per eseguire il progetto in locale sono necessari:
 
-Il progetto include un backend sviluppato con FastAPI per consultare e modificare i dati presenti in MongoDB.
+- Python 3.10 o una versione compatibile;
+- Docker e Docker Compose;
+- Node.js e npm;
+- le dipendenze Python elencate in `requirements.txt`.
 
-Prima di avviare il backend, assicurarsi che MongoDB sia in esecuzione e che i dati siano stati importati.
-
-Avviare MongoDB:
+Con Conda è possibile attivare l’ambiente dedicato:
 
 ```bash
-docker compose up -d
+conda activate bd2-scentbase
 ```
 
-Installare le dipendenze Python:
+Installare le dipendenze Python dalla root del repository:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Verificare che i dati siano presenti in MongoDB:
+## Configurazione
+
+### Variabili del progetto
+
+Creare il file `.env` a partire dall’esempio:
 
 ```bash
-python scripts/verify_mongodb_import.py
+cp .env.example .env
 ```
 
-Avviare il backend FastAPI:
-
-```bash
-uvicorn backend.app.main:app --reload
-```
-
-La documentazione interattiva Swagger è disponibile all’indirizzo:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-### Endpoint disponibili
-
-| Metodo | Endpoint | Descrizione |
-| --- | --- | --- |
-| GET | `/` | Restituisce un messaggio base dell’API |
-| GET | `/health` | Verifica lo stato del backend e la connessione a MongoDB |
-| GET | `/collections/counts` | Restituisce i conteggi delle collection principali |
-| GET | `/perfumes` | Ricerca e filtra i profumi con ordinamento e paginazione |
-| POST | `/perfumes` | Crea un nuovo profumo |
-| GET | `/perfumes/{perfume_id}` | Restituisce un profumo tramite `_id` |
-| GET | `/perfumes/{perfume_id}/details` | Restituisce il profumo con brand, note, accordi e profumieri espansi |
-| GET | `/perfumes/{perfume_id}/similar` | Restituisce i profumi più simili per note e accordi condivisi |
-| PUT | `/perfumes/{perfume_id}` | Sostituisce i campi modificabili di un profumo esistente |
-| DELETE | `/perfumes/{perfume_id}` | Elimina un profumo esistente |
-| GET | `/statistics/top-perfumes` | Restituisce i profumi meglio valutati |
-| GET | `/statistics/brands` | Restituisce conteggi e rating medio per brand |
-| GET | `/statistics/notes` | Restituisce le note olfattive più frequenti |
-
-### Ricerca e filtri sui profumi
-
-L’endpoint `GET /perfumes` supporta filtri singoli e combinati. Tutti i criteri specificati nella stessa richiesta vengono applicati con logica `AND`.
-
-Parametri disponibili:
-
-| Parametro | Tipo | Descrizione |
-| --- | --- | --- |
-| `name` | stringa | Ricerca parziale e case-insensitive per nome del profumo |
-| `brand` | stringa | Filtro per nome del brand |
-| `gender` | `men`, `women`, `unisex` | Filtro per genere |
-| `year_min` | intero | Anno minimo, incluso |
-| `year_max` | intero | Anno massimo, incluso |
-| `rating_min` | numero | Rating minimo, compreso tra `0` e `5` |
-| `rating_max` | numero | Rating massimo, compreso tra `0` e `5` |
-| `votes_min` | intero | Numero minimo di voti |
-| `note` | stringa | Filtro per nome di nota olfattiva |
-| `accord` | stringa | Filtro per nome di accordo |
-| `perfumer` | stringa | Filtro per nome del profumiere |
-| `sort_by` | `name`, `year`, `rating`, `votes` | Campo usato per l’ordinamento |
-| `sort_order` | `asc`, `desc` | Direzione dell’ordinamento |
-| `limit` | intero | Numero massimo di risultati, da `1` a `100` |
-| `skip` | intero | Numero di risultati da saltare |
-
-I filtri per brand, note, accordi e profumieri risolvono i nomi nelle rispettive collection e applicano poi gli identificativi ottenuti ai documenti `perfumes`.
-
-Esempi:
-
-```bash
-curl "http://127.0.0.1:8000/perfumes?name=vanilla"
-```
-
-```bash
-curl "http://127.0.0.1:8000/perfumes?brand=Dior&gender=unisex"
-```
-
-```bash
-curl "http://127.0.0.1:8000/perfumes?note=Vanilla&rating_min=4&votes_min=100"
-```
-
-```bash
-curl "http://127.0.0.1:8000/perfumes?accord=woody&year_min=2000&year_max=2020&sort_by=rating&sort_order=desc&limit=20&skip=0"
-```
-
-La risposta mantiene la struttura paginata:
-
-```json
-{
-  "items": [],
-  "limit": 20,
-  "skip": 0,
-  "total": 0
-}
-```
-
-Il campo `total` rappresenta il numero complessivo di documenti che soddisfano i filtri prima dell’applicazione di `limit` e `skip`.
-
-Gli intervalli incoerenti, come `year_min` maggiore di `year_max`, restituiscono `400 Bad Request`. I valori non ammessi o fuori intervallo restituiscono `422`.
-
-La ricerca di un brand, una nota, un accordo o un profumiere non presente restituisce una lista vuota con stato `200 OK`.
-
-L’endpoint standard mantiene i riferimenti verso le collection collegate come identificativi. Per ottenere i documenti espansi è disponibile l’endpoint di dettaglio completo.
-
-### JOIN multi-collection e aggregazioni statistiche
-
-L’endpoint:
-
-```text
-GET /perfumes/{perfume_id}/details
-```
-
-usa `$lookup` verso `brands`, `notes`, `accords` e `perfumers`. La risposta mantiene gli identificativi originali e aggiunge:
-
-```text
-brand
-top_notes
-middle_notes
-base_notes
-accords
-perfumers
-```
-
-Le note di testa, cuore e fondo restano separate e il loro ordine originale viene conservato. I riferimenti assenti vengono restituiti come array vuoti.
-
-Endpoint statistici:
-
-| Endpoint | Parametri | Risultato |
-| --- | --- | --- |
-| `/statistics/top-perfumes` | `limit`, `min_votes` | Profumi ordinati per rating e numero di voti |
-| `/statistics/brands` | `limit` | Numero di profumi, numero di valutati e rating medio per brand |
-| `/statistics/notes` | `limit` | Note presenti nel maggior numero di profumi |
-
-Esempi:
+Su PowerShell:
 
 ```powershell
-curl.exe "http://127.0.0.1:8000/perfumes/perfume_00091c9fce/details"
-curl.exe "http://127.0.0.1:8000/statistics/top-perfumes?limit=5&min_votes=100"
-curl.exe "http://127.0.0.1:8000/statistics/brands?limit=5"
-curl.exe "http://127.0.0.1:8000/statistics/notes?limit=5"
+Copy-Item .env.example .env
 ```
-
-Le pipeline sono versionate in:
-
-```text
-queries/issue-09-aggregations.js
-```
-
-La descrizione sintetica delle query è disponibile in:
-
-```text
-docs/queries.md
-```
-
-### Ricerca di profumi simili
-
-L'endpoint:
-
-```text
-GET /perfumes/{perfume_id}/similar
-```
-
-restituisce una lista ordinata di profumi simili a quello indicato, confrontando gli insiemi delle note olfattive e degli accordi principali.
-
-Il parametro opzionale `limit` stabilisce il numero massimo di risultati:
-
-| Parametro | Tipo | Valore predefinito | Vincoli |
-| --- | --- | ---: | --- |
-| `limit` | intero | `10` | da `1` a `50` |
-
-Esempio:
-
-```powershell
-curl.exe "http://127.0.0.1:8000/perfumes/perfume_00091c9fce/similar?limit=5"
-```
-
-La pipeline preseleziona soltanto i candidati che condividono almeno una nota o un accordo con il profumo sorgente. Il profumo sorgente viene sempre escluso e i candidati con score uguale a zero non vengono restituiti.
-
-La similarità viene calcolata separatamente per note e accordi mediante l'indice di Jaccard:
-
-```text
-Jaccard(A, B) = |A ∩ B| / |A ∪ B|
-```
-
-Lo score finale utilizza i seguenti pesi:
-
-```text
-similarity_score =
-    0.7 × note_similarity
-  + 0.3 × accord_similarity
-```
-
-Le note hanno un peso maggiore perché rappresentano una descrizione più granulare della composizione del profumo. Quando l'unione relativa alle note o agli accordi è vuota, la componente corrispondente assume valore `0`.
-
-I risultati vengono ordinati in modo deterministico secondo:
-
-1. `similarity_score` decrescente;
-2. `rating` decrescente;
-3. `votes` decrescente;
-4. `_id` crescente.
-
-Rating e voti non partecipano al calcolo della similarità, ma vengono usati soltanto per risolvere eventuali parità.
-
-Per ogni candidato la risposta include:
-
-```text
-brand
-shared_note_ids
-shared_accord_ids
-shared_notes
-shared_accords
-note_similarity
-accord_similarity
-similarity_score
-```
-
-La pipeline MongoDB è versionata in:
-
-```text
-queries/issue-10-similar-perfumes.js
-```
-
-La formula, gli operatori usati e i limiti dell'approccio sono descritti in:
-
-```text
-docs/queries.md
-```
-
-Per eseguire direttamente la pipeline tramite il container MongoDB:
-
-```powershell
-docker cp .\queries\issue-10-similar-perfumes.js scentbase-mongodb:/tmp/issue-10-similar-perfumes.js
-
-docker exec -it scentbase-mongodb mongosh `
-  "mongodb://scentbase_admin:change_me@localhost:27017/admin" `
-  /tmp/issue-10-similar-perfumes.js
-```
-
-La similarità considera esclusivamente note e accordi. Non utilizza embedding, machine learning, descrizioni testuali, brand, genere, profumiere, anno o rating.
-
-### Operazioni CRUD sui profumi
-
-I payload ricevuti dagli endpoint `POST` e `PUT` vengono validati tramite modelli Pydantic.
-
-Per i profumi creati tramite API:
-
-* `_id` viene generato automaticamente dal backend con prefisso `manual_perfume_`;
-* `all_note_ids` viene calcolato automaticamente unendo `top_note_ids`, `middle_note_ids` e `base_note_ids`;
-* i riferimenti verso `brands`, `notes`, `accords` e `perfumers` devono puntare a documenti già esistenti;
-* gli identificativi duplicati negli array vengono rimossi mantenendo l’ordine;
-* `source_url` è opzionale, ma quando presente deve essere un URL valido e univoco;
-* `_id`, `all_note_ids` e i campi non previsti non possono essere impostati direttamente dal client.
-
-Per i profumi importati tramite ETL, `source_url` resta obbligatorio e non può essere rimosso o modificato tramite `PUT`, perché identifica la sorgente originale del record.
-
-L’endpoint `PUT` richiede il payload completo dei campi modificabili e non crea automaticamente un nuovo documento quando il profumo non esiste.
-
-L’eliminazione di un profumo non elimina brand, note, accordi o profumieri collegati, poiché tali documenti possono essere condivisi da più profumi.
-
-Esempio di payload valido:
-
-```json
-{
-  "name": "ScentBase CRUD Test",
-  "brand_id": "brand_example",
-  "gender": "unisex",
-  "rating": 4.2,
-  "votes": 10,
-  "year": 2026,
-  "top_note_ids": ["note_example"],
-  "middle_note_ids": [],
-  "base_note_ids": [],
-  "accord_ids": ["accord_example"],
-  "perfumer_ids": [],
-  "source_url": "https://example.com/scentbase-crud-test"
-}
-```
-
-Gli identificativi dell’esempio devono essere sostituiti con valori realmente presenti nelle rispettive collection.
-
-Principali codici di risposta:
-
-| Codice | Significato |
-| --- | --- |
-| `200` | Profumo letto o modificato correttamente |
-| `201` | Profumo creato correttamente |
-| `204` | Profumo eliminato correttamente |
-| `400` | Riferimenti inesistenti, intervalli incoerenti o dati non modificabili |
-| `404` | Profumo non trovato |
-| `409` | Conflitto di unicità, ad esempio `source_url` duplicato |
-| `422` | Payload o parametro della query non valido |
-
-### Indici MongoDB
-
-Gli indici della collection `perfumes` sono definiti centralmente in:
-
-```text
-backend/app/indexes.py
-```
-
-Gli indici gestiti sono:
-
-| Indice | Funzione principale |
-| --- | --- |
-| `uq_perfumes_source_url` | Garantisce l’unicità dei valori stringa di `source_url` |
-| `idx_perfumes_brand_rating` | Supporta il filtro per brand e l’ordinamento per rating |
-| `idx_perfumes_gender_rating_votes` | Supporta filtri combinati per genere, rating e voti |
-| `idx_perfumes_rating_votes` | Supporta la classifica dei profumi meglio valutati |
-| `idx_perfumes_all_note_ids` | Supporta la ricerca dei profumi per nota olfattiva |
-| `idx_perfumes_accord_ids` | Supporta la ricerca dei profumi per accordo |
-
-L’indice su `source_url` è univoco e parziale: indicizza soltanto i documenti nei quali il campo contiene una stringa. In questo modo impedisce URL duplicati, ma permette la presenza di più profumi manuali senza `source_url` o con valore `null`.
-
-La gestione avviene tramite:
-
-```text
-scripts/manage_indexes.py
-```
-
-Creare gli indici:
-
-```bash
-python scripts/manage_indexes.py create
-```
-
-Elencare gli indici presenti:
-
-```bash
-python scripts/manage_indexes.py list
-```
-
-Rimuovere esclusivamente gli indici gestiti da ScentBase:
-
-```bash
-python scripts/manage_indexes.py drop
-```
-
-La rimozione conserva sempre l’indice MongoDB obbligatorio `_id_` e gli eventuali indici non gestiti dallo script.
-
-La creazione è idempotente: il comando `create` può essere eseguito più volte senza produrre duplicazioni o errori.
-
-L’importazione con:
-
-```bash
-python scripts/import_to_mongodb.py --reset
-```
-
-ricrea le collection e rimuove quindi anche gli indici personalizzati. Dopo una nuova importazione completa è necessario eseguire:
-
-```bash
-python scripts/verify_mongodb_import.py
-python scripts/manage_indexes.py create
-```
-
-### Benchmark con e senza indici
-
-Il benchmark è implementato in:
-
-```text
-benchmarks/run_benchmarks.py
-```
-
-Per eseguirlo sul dataset completo:
-
-```bash
-python benchmarks/run_benchmarks.py --warmup 3 --runs 20
-```
-
-Lo script:
-
-1. verifica la connessione e il numero di profumi;
-2. seleziona automaticamente parametri reali dal dataset;
-3. rimuove soltanto gli indici gestiti;
-4. esegue gli scenari senza indici gestiti;
-5. crea gli indici;
-6. ripete gli stessi scenari;
-7. verifica che gli identificativi restituiti siano equivalenti;
-8. raccoglie tempi ed `executionStats`;
-9. salva i risultati;
-10. lascia gli indici gestiti installati.
-
-Gli scenari confrontati sono:
-
-1. ricerca per nota olfattiva;
-2. ricerca per accordo;
-3. filtro per brand con ordinamento per rating;
-4. filtri combinati per genere, rating e voti;
-5. profumi meglio valutati;
-6. ricerca dei profumi simili;
-7. ricerca esatta per `source_url`.
-
-Per ogni scenario vengono raccolti:
-
-```text
-tempo medio
-tempo mediano
-tempo minimo e massimo
-deviazione standard
-totalDocsExamined
-totalKeysExamined
-nReturned
-piano vincente
-indici utilizzati
-```
-
-I dati grezzi sono salvati in:
-
-```text
-benchmarks/results/benchmark-results.json
-```
-
-Il report completo è disponibile in:
-
-```text
-docs/indexes-and-benchmarks.md
-```
-
-Il benchmark rigenera entrambi i file. I risultati versionati nel repository devono quindi corrispondere all’ultima esecuzione definitiva.
-
-Risultati principali dell’ultima esecuzione:
-
-| Scenario | Indice utilizzato | Variazione tempo medio |
-| --- | --- | ---: |
-| Ricerca per nota | `idx_perfumes_all_note_ids` | −34,802% |
-| Ricerca per accordo | `idx_perfumes_accord_ids` | −42,483% |
-| Brand ordinato per rating | `idx_perfumes_brand_rating` | −89,184% |
-| Filtri combinati | `idx_perfumes_gender_rating_votes` | −91,305% |
-| Profumi meglio valutati | `idx_perfumes_rating_votes` | −90,334% |
-| Profumi simili | indici su note e accordi | +2,724% |
-| Ricerca per `source_url` | nessun indice gestito | variazione non attribuibile all’indice |
-
-Un valore negativo rappresenta una riduzione del tempo. La ricerca di similarità mostra che un indice non garantisce sempre un miglioramento: in questo caso quasi tutta la collection viene selezionata e gli indici multikey devono esaminare numerose chiavi.
-
-L’indice `uq_perfumes_source_url` viene mantenuto principalmente come vincolo di integrità, anche se il query planner non lo utilizza nella query benchmarkata.
-
-### Test automatici di integrazione
-
-Il backend dispone di test automatici eseguiti con `pytest` e `TestClient`.
-
-I test utilizzano un database MongoDB separato:
-
-```text
-scentbase_test
-```
-
-La configurazione dei test:
-
-* seleziona `scentbase_test` prima di importare l’applicazione FastAPI;
-* verifica che il nome del database termini con `_test`;
-* elimina un eventuale database di test precedente;
-* popola automaticamente le collection `brands`, `notes`, `accords`, `perfumers` e `perfumes` con dati sintetici;
-* esegue i test senza leggere o modificare il database principale `scentbase`;
-* elimina `scentbase_test` al termine della suite.
-
-Prima di eseguire i test, assicurarsi che MongoDB sia attivo:
-
-```bash
-docker compose up -d
-```
-
-Nel file `.env` devono essere presenti:
-
-```dotenv
-MONGO_DATABASE=scentbase
-MONGO_TEST_DATABASE=scentbase_test
-```
-
-`MONGO_DATABASE` deve rimanere impostata su `scentbase`: la suite seleziona autonomamente il database di test.
-
-Eseguire tutti i test dalla root del repository:
-
-```bash
-python -m pytest -v
-```
-
-Per eseguire soltanto i test delle JOIN e delle aggregazioni:
-
-```bash
-python -m pytest tests/test_aggregations.py -v
-```
-
-Per eseguire soltanto i test della ricerca di profumi simili:
-
-```bash
-python -m pytest tests/test_similarity.py -v
-```
-
-Per eseguire soltanto i test della gestione degli indici:
-
-```bash
-python -m pytest tests/test_indexes.py -v
-```
-
-Ultimo risultato ottenuto sull'intera suite:
-
-```text
-84 passed in 3.48s
-```
-
-La suite verifica:
-
-* filtri singoli e combinati;
-* ricerca parziale e case-insensitive;
-* trattamento sicuro dei caratteri usati nelle espressioni regolari;
-* ordinamento crescente e decrescente;
-* paginazione e calcolo di `total`;
-* riferimenti non presenti nelle collection collegate;
-* intervalli incoerenti e parametri non validi;
-* regressione minima degli endpoint di lettura e health check;
-* JOIN multi-collection tramite `$lookup`;
-* conservazione dell’ordine delle note e gestione degli array vuoti;
-* aggregazioni per profumi, brand e note;
-* validazione dei parametri `limit` e `min_votes`;
-* calcolo della similarità di Jaccard per note e accordi;
-* applicazione dei pesi `0.7` e `0.3`;
-* esclusione del profumo sorgente e dei candidati con score nullo;
-* espansione di brand, note condivise e accordi condivisi;
-* ordinamento deterministico dei profumi simili;
-* gestione di profumi privi di note o accordi;
-* validazione del parametro `limit` dell'endpoint di similarità;
-* creazione idempotente degli indici gestiti;
-* elenco serializzabile degli indici;
-* rimozione controllata senza eliminare `_id_` o indici esterni;
-* vincolo univoco parziale su `source_url`;
-* accettazione di documenti senza `source_url` o con valore `null`;
-* equivalenza logica delle query prima e dopo la creazione degli indici.
-
-I file principali sono:
-
-```text
-pytest.ini
-tests/conftest.py
-tests/test_perfume_filters.py
-tests/test_aggregations.py
-tests/test_similarity.py
-tests/test_indexes.py
-```
-
-### Verifica manuale degli endpoint
-
-Gli endpoint possono essere verificati tramite Swagger UI oppure con `curl`.
-
-Dopo la suite automatica è sufficiente eseguire uno smoke test rappresentativo sul database completo:
-
-```bash
-curl "http://127.0.0.1:8000/perfumes?note=Vanilla&rating_min=4&sort_by=rating&sort_order=desc&limit=5"
-```
-
-Su PowerShell è preferibile usare:
-
-```powershell
-curl.exe "http://127.0.0.1:8000/perfumes?note=Vanilla&rating_min=4&sort_by=rating&sort_order=desc&limit=5"
-```
-
-Esempi aggiuntivi di lettura:
-
-```bash
-curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/collections/counts
-curl "http://127.0.0.1:8000/perfumes?limit=5&skip=0"
-curl "http://127.0.0.1:8000/perfumes/<ID_REALE>"
-curl "http://127.0.0.1:8000/perfumes/not_existing_perfume"
-curl "http://127.0.0.1:8000/perfumes/<ID_REALE>/details"
-curl "http://127.0.0.1:8000/perfumes/<ID_REALE>/similar?limit=5"
-curl "http://127.0.0.1:8000/statistics/top-perfumes?limit=5&min_votes=100"
-curl "http://127.0.0.1:8000/statistics/brands?limit=5"
-curl "http://127.0.0.1:8000/statistics/notes?limit=5"
-```
-
-Per verificare la CRUD completa:
-
-1. creare un profumo sintetico con `POST /perfumes`, usando riferimenti reali;
-2. recuperarlo con `GET /perfumes/{perfume_id}`;
-3. modificarlo con `PUT /perfumes/{perfume_id}`;
-4. eliminarlo con `DELETE /perfumes/{perfume_id}`;
-5. verificare che una successiva lettura restituisca `404 Not Found`.
-
-Sono stati verificati anche i principali casi negativi: riferimento inesistente, genere o rating non valido, campo non previsto, profumo inesistente e `source_url` duplicato.
-
-Lo script `verify_mongodb_import.py` controlla i conteggi esatti del dataset ETL. Dopo i test CRUD è quindi necessario eliminare tutti i documenti sintetici prima di rieseguirlo.
-
-## Esecuzione completa da zero
-
-Per rigenerare i dati, caricarli in MongoDB, creare gli indici, verificare il progetto e avviare il backend:
-
-```bash
-docker compose up -d
-pip install -r requirements.txt
-python scripts/extract_distinct_values.py
-python scripts/transform_dataset.py
-python scripts/import_to_mongodb.py --reset
-python scripts/verify_mongodb_import.py
-python scripts/manage_indexes.py create
-python scripts/manage_indexes.py list
-python -m pytest -v
-uvicorn backend.app.main:app --reload
-```
-
-Per riprodurre anche il confronto con e senza indici:
-
-```bash
-python benchmarks/run_benchmarks.py --warmup 3 --runs 20
-```
-
-Il benchmark lascia gli indici gestiti installati al termine dell’esecuzione.
-
-## File di configurazione
-
-Il file `.env.example` contiene variabili di ambiente di esempio.
-
-Il file `.env` viene usato solo in locale e non deve essere caricato nel repository.
 
 Variabili principali:
 
@@ -912,36 +184,537 @@ MONGO_INITDB_DATABASE
 MONGO_DATABASE
 MONGO_TEST_DATABASE
 MONGO_URI
+CORS_ALLOWED_ORIGINS
 ```
+
+`CORS_ALLOWED_ORIGINS` contiene gli origin autorizzati a chiamare il backend. La configurazione locale predefinita consente:
+
+```text
+http://localhost:5173
+http://127.0.0.1:5173
+```
+
+### Variabile del frontend
+
+Dalla cartella `frontend/`, creare il file locale:
+
+```bash
+cp .env.example .env
+```
+
+Su PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+La variabile disponibile è:
+
+```text
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
+
+Se `VITE_API_BASE_URL` non viene specificata, il frontend usa automaticamente `http://127.0.0.1:8000`.
+
+I file `.env` sono locali e non devono essere versionati.
+
+## Avvio di MongoDB
+
+Avviare MongoDB:
+
+```bash
+docker compose up -d
+```
+
+Controllare lo stato:
+
+```bash
+docker compose ps
+```
+
+Visualizzare i log:
+
+```bash
+docker compose logs mongodb
+```
+
+Fermare i container:
+
+```bash
+docker compose down
+```
+
+Rimuovere anche il volume locale:
+
+```bash
+docker compose down -v
+```
+
+## Importazione e ripristino del dataset
+
+Per ricostruire il database usando i JSON già generati:
+
+```bash
+python scripts/import_to_mongodb.py --reset
+```
+
+L’opzione `--reset` elimina e ricrea le collection target. L’importazione avviene nell’ordine:
+
+```text
+brands
+notes
+accords
+perfumers
+perfumes
+```
+
+Verificare il caricamento:
+
+```bash
+python scripts/verify_mongodb_import.py
+```
+
+Il reset delle collection elimina anche gli indici personalizzati. Dopo il ripristino eseguire:
+
+```bash
+python scripts/manage_indexes.py create
+python scripts/manage_indexes.py list
+```
+
+Per rigenerare anche i JSON a partire dal CSV:
+
+```bash
+python scripts/extract_distinct_values.py
+python scripts/transform_dataset.py
+python scripts/import_to_mongodb.py --reset
+python scripts/verify_mongodb_import.py
+python scripts/manage_indexes.py create
+```
+
+## Avvio del backend
+
+Assicurarsi che MongoDB sia in esecuzione e avviare FastAPI dalla root:
+
+```bash
+uvicorn backend.app.main:app --reload
+```
+
+Swagger UI è disponibile su:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+## Avvio del frontend
+
+In un secondo terminale:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Aprire:
+
+```text
+http://localhost:5173
+```
+
+Comandi disponibili:
+
+```bash
+npm run dev
+npm run lint
+npm run build
+npm run preview
+```
+
+`npm run build` genera la versione di produzione nella cartella locale `frontend/dist/`. La cartella `dist` non deve essere aggiunta al repository.
+
+## Pagine dell’interfaccia
+
+### Dashboard
+
+La pagina iniziale mostra:
+
+- conteggi di profumi, brand, note, accordi e profumieri;
+- profumi meglio valutati;
+- brand con rating medio più alto;
+- note olfattive più frequenti;
+- rappresentazioni grafiche leggere realizzate nell’interfaccia.
+
+### Catalogo
+
+Il catalogo offre:
+
+- ricerca per nome;
+- filtri per brand, genere, anno, rating, voti, nota, accordo e profumiere;
+- combinazione dei filtri con logica `AND`;
+- ordinamento per nome, anno, rating o voti;
+- ordinamento crescente o decrescente;
+- paginazione;
+- conteggio complessivo dei risultati;
+- azzeramento dei filtri;
+- gestione di caricamento, errori e risultati vuoti.
+
+### Dettaglio del profumo
+
+La pagina di dettaglio usa una JOIN multi-collection e mostra:
+
+- brand espanso;
+- rating, voti, genere e anno;
+- note di testa, cuore e fondo;
+- accordi con colori associati;
+- profumieri;
+- profumi simili;
+- pulsanti per modifica ed eliminazione.
+
+### Creazione e modifica
+
+Il form consente di:
+
+- creare un nuovo profumo;
+- modificare un profumo esistente;
+- selezionare brand, note, accordi e profumieri tramite nomi leggibili;
+- visualizzare gli errori restituiti dal backend;
+- ricevere una conferma dopo il salvataggio.
+
+L’eliminazione richiede una conferma esplicita.
+
+## Endpoint principali
+
+| Metodo | Endpoint | Descrizione |
+| --- | --- | --- |
+| GET | `/` | Informazioni di base sull’API |
+| GET | `/health` | Stato del backend e di MongoDB |
+| GET | `/collections/counts` | Conteggi delle collection |
+| GET | `/references/catalog` | Brand, note, accordi e profumieri necessari al frontend |
+| GET | `/perfumes` | Ricerca, filtri, ordinamento e paginazione |
+| POST | `/perfumes` | Creazione di un profumo |
+| GET | `/perfumes/{perfume_id}` | Lettura di un profumo |
+| GET | `/perfumes/{perfume_id}/details` | Dettaglio con riferimenti espansi |
+| GET | `/perfumes/{perfume_id}/similar` | Profumi simili |
+| PUT | `/perfumes/{perfume_id}` | Modifica completa dei campi scrivibili |
+| DELETE | `/perfumes/{perfume_id}` | Eliminazione di un profumo |
+| GET | `/statistics/top-perfumes` | Profumi meglio valutati |
+| GET | `/statistics/brands` | Conteggi e rating medio per brand |
+| GET | `/statistics/notes` | Note più frequenti |
+
+## Ricerca e filtri
+
+`GET /perfumes` accetta:
+
+| Parametro | Descrizione |
+| --- | --- |
+| `name` | Ricerca parziale per nome |
+| `brand` | Nome del brand |
+| `gender` | `men`, `women` oppure `unisex` |
+| `year_min`, `year_max` | Intervallo di anni |
+| `rating_min`, `rating_max` | Intervallo di rating |
+| `votes_min` | Numero minimo di voti |
+| `note` | Nome della nota |
+| `accord` | Nome dell’accordo |
+| `perfumer` | Nome del profumiere |
+| `sort_by` | `name`, `year`, `rating` oppure `votes` |
+| `sort_order` | `asc` oppure `desc` |
+| `limit` | Numero di risultati, da 1 a 100 |
+| `skip` | Numero di risultati da saltare |
+
+La ricerca testuale è:
+
+- parziale;
+- case-insensitive;
+- sicura rispetto ai caratteri delle espressioni regolari;
+- tollerante rispetto a spazi, trattini e underscore.
+
+Le seguenti ricerche sono equivalenti:
+
+```text
+acqua di
+acqua-di
+acqua_di
+```
+
+Esempi:
+
+```bash
+curl "http://127.0.0.1:8000/perfumes?name=acqua%20di"
+curl "http://127.0.0.1:8000/perfumes?brand=Dior&gender=unisex"
+curl "http://127.0.0.1:8000/perfumes?note=Vanilla&rating_min=4&votes_min=100"
+```
+
+## Endpoint dei riferimenti
+
+Il frontend usa:
+
+```text
+GET /references/catalog
+```
+
+La risposta contiene quattro elenchi ordinati:
+
+```json
+{
+  "brands": [],
+  "notes": [],
+  "accords": [],
+  "perfumers": []
+}
+```
+
+L’endpoint è di sola lettura. Permette di visualizzare nomi comprensibili nei form e inviare al backend gli identificativi MongoDB corretti senza richiedere all’utente di digitarli manualmente.
+
+## Operazioni CRUD e normalizzazione
+
+I payload di `POST /perfumes` e `PUT /perfumes/{perfume_id}` sono validati tramite Pydantic.
+
+Il backend:
+
+- genera automaticamente `_id` per i profumi manuali con prefisso `manual_perfume_`;
+- ricostruisce `all_note_ids` a partire dalle tre categorie di note;
+- rimuove i riferimenti duplicati mantenendo il loro ordine;
+- verifica che brand, note, accordi e profumieri esistano;
+- controlla l’unicità di `source_url` quando presente;
+- impedisce la modifica o rimozione di `source_url` per i profumi importati dall’ETL.
+
+La pulizia del nome è allineata a quella della pipeline ETL:
+
+- sostituzione degli spazi non separabili;
+- rimozione di spazi esterni;
+- rimozione di virgolette o apici che racchiudono l’intero valore;
+- riduzione delle sequenze di spazi a un solo spazio;
+- conservazione della capitalizzazione originale.
+
+### Controllo dei duplicati applicativi
+
+Il middleware applicativo controlla esclusivamente:
+
+```text
+POST /perfumes
+PUT /perfumes/{perfume_id}
+```
+
+Un profumo viene considerato duplicato quando coincidono:
+
+- nome, senza distinguere maiuscole e minuscole;
+- brand;
+- genere;
+- anno;
+- note di testa, cuore e fondo;
+- accordi;
+- profumieri.
+
+L’ordine dei riferimenti non modifica il risultato del confronto.
+
+Rating, voti e `source_url` non fanno parte della firma applicativa, perché possono cambiare senza identificare una fragranza diversa. `source_url` mantiene inoltre il proprio controllo di unicità separato.
+
+In caso di duplicato il backend restituisce:
+
+```text
+409 Conflict
+```
+
+Il controllo riguarda soltanto le richieste CRUD ricevute dall’API. Gli script ETL e di importazione non attraversano il middleware e mantengono il comportamento definito per il caricamento del CSV.
+
+## JOIN, statistiche e profumi simili
+
+Il dettaglio completo usa `$lookup` verso:
+
+```text
+brands
+notes
+accords
+perfumers
+```
+
+Le pipeline e le relative scelte sono documentate in [docs/queries.md](docs/queries.md).
+
+La ricerca di profumi simili confronta note e accordi tramite indice di Jaccard:
+
+```text
+similarity_score = 0.7 × note_similarity + 0.3 × accord_similarity
+```
+
+Rating e voti non partecipano al calcolo, ma vengono usati per risolvere eventuali parità.
+
+## Indici MongoDB
+
+Gli indici sono definiti in:
+
+```text
+backend/app/indexes.py
+```
+
+Gestione:
+
+```bash
+python scripts/manage_indexes.py create
+python scripts/manage_indexes.py list
+python scripts/manage_indexes.py drop
+```
+
+Il comando `create` è idempotente. `drop` rimuove soltanto gli indici gestiti dal progetto e conserva `_id_`.
+
+Il progetto include indici per:
+
+- unicità parziale di `source_url`;
+- brand e rating;
+- genere, rating e voti;
+- classifica per rating e voti;
+- note olfattive;
+- accordi.
+
+## Benchmark
+
+Il benchmark replicabile si esegue con:
+
+```bash
+python benchmarks/run_benchmarks.py --warmup 3 --runs 20
+```
+
+Confronta sette scenari prima e dopo la creazione degli indici e salva i risultati in:
+
+```text
+benchmarks/results/benchmark-results.json
+```
+
+Metodologia, risultati e limiti sono descritti in [docs/indexes-and-benchmarks.md](docs/indexes-and-benchmarks.md).
+
+## Test automatici
+
+Dalla root del repository:
+
+```bash
+python -m pytest -v
+```
+
+Risultato verificato sulla versione documentata:
+
+```text
+92 passed in 3.48s
+```
+
+Per eseguire gruppi specifici:
+
+```bash
+python -m pytest tests/test_perfume_filters.py -v
+python -m pytest tests/test_search_normalization.py -v
+python -m pytest tests/test_aggregations.py -v
+python -m pytest tests/test_similarity.py -v
+python -m pytest tests/test_indexes.py -v
+```
+
+La suite copre, tra le altre cose:
+
+- filtri singoli e combinati;
+- ricerca parziale e case-insensitive;
+- equivalenza tra spazi, trattini e underscore;
+- trattamento letterale dei caratteri speciali;
+- ordinamento e paginazione;
+- JOIN e aggregazioni;
+- similarità di Jaccard;
+- gestione degli indici;
+- vincolo univoco parziale su `source_url`;
+- regressione degli endpoint principali.
+
+## Verifica del frontend
+
+Dalla cartella `frontend/`:
+
+```bash
+npm run lint
+npm run build
+```
+
+Risultati verificati sulla versione documentata:
+
+```text
+ESLint completato senza errori
+Vite build completata senza errori
+0 vulnerabilità rilevate durante npm install
+```
+
+Verifica manuale minima:
+
+1. caricare dashboard e statistiche;
+2. usare catalogo, filtri, ordinamento e paginazione;
+3. cercare lo stesso profumo con spazio, trattino e underscore;
+4. aprire un dettaglio con note, accordi, profumieri e simili;
+5. creare, modificare ed eliminare un profumo sintetico;
+6. verificare errori e stati vuoti;
+7. controllare desktop, tablet e smartphone;
+8. verificare l’assenza di errori rilevanti nella console del browser.
+
+Dopo test CRUD sul database completo, ripristinare i dati originali con:
+
+```bash
+python scripts/import_to_mongodb.py --reset
+python scripts/manage_indexes.py create
+python scripts/verify_mongodb_import.py
+```
+
+## Esecuzione completa da zero
+
+Terminale principale:
+
+```bash
+pip install -r requirements.txt
+docker compose up -d
+python scripts/import_to_mongodb.py --reset
+python scripts/verify_mongodb_import.py
+python scripts/manage_indexes.py create
+python -m pytest -v
+uvicorn backend.app.main:app --reload
+```
+
+Secondo terminale:
+
+```bash
+cd frontend
+npm install
+npm run lint
+npm run build
+npm run dev
+```
+
+Applicazione:
+
+```text
+Frontend: http://localhost:5173
+Backend:  http://127.0.0.1:8000
+Swagger:  http://127.0.0.1:8000/docs
+```
+
+## Teorema CAP
+
+Il teorema CAP viene discusso esclusivamente dal punto di vista teorico nella documentazione conclusiva. Il progetto non implementa replica set, sharding, partizioni di rete o una rete distribuita simulata.
+
+## Documentazione
+
+- [Modellazione documentale](docs/modeling.md)
+- [Pipeline ETL](docs/etl.md)
+- [Query, JOIN, aggregazioni e similarità](docs/queries.md)
+- [Indici e benchmark](docs/indexes-and-benchmarks.md)
 
 ## Stato del progetto
 
-Setup iniziale del repository completato.
+L’implementazione comprende:
 
-MongoDB è avviabile localmente tramite Docker.
+- setup MongoDB tramite Docker;
+- modellazione documentale;
+- pipeline ETL e importazione verificata;
+- backend FastAPI;
+- CRUD sui profumi;
+- ricerca, filtri, ordinamento e paginazione;
+- JOIN multi-collection;
+- aggregazioni statistiche;
+- ricerca di profumi simili;
+- progettazione e benchmark degli indici;
+- frontend React responsive;
+- dashboard, catalogo, dettaglio e form CRUD;
+- configurazione CORS;
+- controllo applicativo dei duplicati;
+- test automatici e verifiche frontend.
 
-La modellazione documentale è stata definita in `docs/modeling.md`, con le collection principali, i collegamenti tramite riferimenti, la gestione degli identificativi, i campi di arricchimento e le scelte di modellazione.
-
-La pipeline ETL è stata implementata con script per estrazione dei valori distinti, validazione dei mapping di arricchimento, controllo delle collisioni e generazione dei file JSON in `data/processed/`.
-
-La fase di caricamento in MongoDB è stata implementata tramite script di importazione e verifica. I dati trasformati possono essere importati nel database locale e controllati tramite conteggi, unicità degli identificativi e validità dei riferimenti tra collection.
-
-Il backend FastAPI è stato implementato e collegato al database MongoDB. L’applicazione espone endpoint per verificare lo stato della connessione, consultare i conteggi delle collection e leggere i profumi importati tramite API.
-
-Le operazioni CRUD principali sulla collection `perfumes` sono state completate. Il backend consente la creazione, la modifica e l’eliminazione dei profumi, applicando validazione Pydantic, controllo dei riferimenti verso le collection collegate, generazione automatica di `_id` e `all_note_ids`, controllo di unicità di `source_url` e gestione degli errori HTTP principali.
-
-La ricerca del catalogo supporta filtri singoli e combinati per nome, brand, genere, anno, rating, voti, note, accordi e profumieri, oltre a ordinamento e paginazione.
-
-Sono state completate le JOIN multi-collection tramite `$lookup`, il dettaglio completo del profumo e le aggregazioni statistiche per profumi, brand e note. Le pipeline sono disponibili sia nel backend Python sia nello script `queries/issue-09-aggregations.js` e sono state verificate sul dataset completo di 24.063 profumi.
-
-È stata implementata e verificata sul dataset completo anche la ricerca di profumi simili basata sulla similarità di Jaccard delle note e degli accordi. La pipeline è disponibile in `backend/app/services/similarity.py` e nello script `queries/issue-10-similar-perfumes.js`.
-
-La gestione degli indici MongoDB è stata completata. Il progetto definisce sei indici gestiti, include comandi per crearli, elencarli e rimuoverli in modo controllato e applica un vincolo univoco parziale su `source_url`.
-
-È stato inoltre completato un benchmark replicabile su sette scenari reali. I risultati grezzi sono conservati in `benchmarks/results/benchmark-results.json`, mentre metodologia, interpretazione e limiti sono descritti in `docs/indexes-and-benchmarks.md`.
-
-Gli indici composti per brand, filtri combinati e classifica dei profumi hanno ridotto di oltre il 99% i documenti esaminati negli scenari associati. Anche gli indici multikey su note e accordi hanno mostrato un beneficio nei filtri isolati. La ricerca di similarità ha invece evidenziato che indici poco selettivi possono aumentare il lavoro sulle chiavi senza migliorare il tempo complessivo.
-
-La suite automatica comprende test per filtri, JOIN, aggregazioni, similarità e gestione degli indici. L’ultima esecuzione ha completato **84 test senza errori** sul database separato `scentbase_test`.
-
-Le prossime attività riguarderanno lo sviluppo dell’interfaccia utente minimale e la preparazione della documentazione e della demo finali.
+Il README descrive lo stato funzionale definitivo dell’applicazione e le procedure necessarie per riprodurla, verificarla e avviarla in locale.

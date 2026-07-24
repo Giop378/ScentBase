@@ -46,6 +46,17 @@ ReferenceId = Annotated[
 ]
 
 
+def clean_display_text(value: str) -> str:
+    """Applica la stessa pulizia testuale usata dalla pipeline ETL.
+
+    La funzione mantiene maiuscole, minuscole e caratteri leggibili originali,
+    ma normalizza NBSP, virgolette esterne e sequenze di spazi.
+    """
+    normalized = value.replace("\u00a0", " ").strip()
+    normalized = normalized.strip("'\"`“”‘’ ")
+    return re.sub(r"\s+", " ", normalized)
+
+
 class PerfumePayload(BaseModel):
     """Campi scrivibili di un documento della collection ``perfumes``."""
 
@@ -135,11 +146,13 @@ class PerfumePayload(BaseModel):
         ),
     )
 
-    @field_validator("name", mode="after")
+    @field_validator("name", mode="before")
     @classmethod
-    def normalize_name(cls, value: str) -> str:
-        """Collassa gli spazi interni mantenendo il nome leggibile."""
-        return re.sub(r"\s+", " ", value).strip()
+    def normalize_name(cls, value: object) -> object:
+        """Normalizza il nome come ``clean_text`` della pipeline ETL."""
+        if isinstance(value, str):
+            return clean_display_text(value)
+        return value
 
     @field_validator("gender", mode="before")
     @classmethod

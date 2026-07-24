@@ -1,0 +1,246 @@
+.perfume-card {
+  border-color: color-mix(in srgb, var(--primary-accord) 24%, #d8cdc3);
+  box-shadow: 0 12px 34px rgba(67, 45, 34, .07);
+}
+
+.perfume-card:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 24px 58px color-mix(in srgb, var(--primary-accord) 18%, rgba(61, 42, 30, .16));
+}
+
+.bottle-art {
+  height: 238px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 44%, color-mix(in srgb, var(--primary-accord) 32%, transparent) 0 18%, transparent 48%),
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--primary-accord) 24%, #fffaf4),
+      color-mix(in srgb, var(--secondary-accord) 28%, #f0e6dc));
+}
+
+.bottle-glow {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: var(--primary-accord);
+  opacity: .18;
+  filter: blur(30px);
+}
+
+.bottle-body {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .9), rgba(255, 250, 244, .62));
+  border-color: color-mix(in srgb, var(--primary-accord) 30%, rgba(80, 45, 30, .15));
+  backdrop-filter: blur(6px);
+}
+
+.bottle-liquid {
+  position: absolute;
+  inset: 48% 0 0;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--primary-accord) 48%, transparent),
+    color-mix(in srgb, var(--secondary-accord) 66%, transparent));
+  opacity: .7;
+}
+
+.bottle-body span {
+  position: relative;
+  z-index: 1;
+  color: color-mix(in srgb, var(--primary-accord) 72%, #4e2f26);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .7);
+}
+
+.perfume-card-content {
+  display: flex;
+  min-height: 276px;
+  flex-direction: column;
+  padding: 22px;
+}
+
+.eyebrow-row {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+.brand-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #695c54;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gender-badge {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--primary-accord) 28%, #ddd2c7);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-accord) 10%, white);
+  padding: 5px 9px;
+  color: #5f5149;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.perfume-card h3 {
+  display: -webkit-box;
+  min-height: 58px;
+  margin: 14px 0 16px;
+  overflow: hidden;
+  font-size: 25px;
+  line-height: 1.12;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.card-meta {
+  margin-bottom: 18px;
+}
+
+.rating {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.rating small {
+  white-space: nowrap;
+}
+
+.accord-badges {
+  display: flex;
+  min-height: 32px;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.accord-badge,
+.accord-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--accord-color, #a98c72) 32%, #ddd2c8);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accord-color, #a98c72) 11%, white);
+  padding: 6px 9px;
+  color: #433832;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.accord-badge i {
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(30, 20, 15, .15);
+  border-radius: 50%;
+  background: var(--accord-color);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .72);
+}
+
+.accord-more {
+  border-color: #ddd2c8;
+  background: #f2ebe4;
+}
+
+.details-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 18px;
+  color: color-mix(in srgb, var(--primary-accord) 70%, #3b2b25);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.details-link:hover {
+  gap: 10px;
+}
+
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::after {
+  position: absolute;
+  right: -30px;
+  bottom: -35px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--stat-color);
+  content: '';
+  opacity: .08;
+}
+
+.stat-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--stat-color) 15%, white);
+}
+
+.stat-card .stat-icon svg { color: var(--stat-color); }
+.stat-card.tone-rose { --stat-color: #b85f72; }
+.stat-card.tone-amber { --stat-color: #c9822b; }
+.stat-card.tone-violet { --stat-color: #7567a9; }
+.stat-card.tone-green { --stat-color: #5f8c67; }
+.stat-card.tone-blue { --stat-color: #4f83a8; }
+
+.rank-list,
+.bar-chart,
+.note-panel,
+.info-panel,
+.editor-form section {
+  border: 1px solid rgba(120, 91, 70, .09);
+  box-shadow: 0 12px 35px rgba(61, 42, 30, .045);
+}
+
+.bar-track span {
+  background: linear-gradient(90deg, #9f5f4f, #c9822b, #6fa36f);
+}
+
+.detail-hero {
+  background:
+    radial-gradient(circle at 22% 48%, color-mix(in srgb, var(--primary-accord) 24%, transparent), transparent 32%),
+    linear-gradient(135deg, #2b211d, #171310);
+}
+
+.bottle-art.large {
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--primary-accord) 34%, transparent), transparent 48%),
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--primary-accord) 30%, #f5e9df),
+      color-mix(in srgb, var(--secondary-accord) 35%, #b98f7b));
+}
+
+.detail-info-grid .accord-badges {
+  gap: 10px;
+}
+
+.detail-info-grid .accord-badge {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.notice {
+  margin-bottom: 22px;
+  border: 1px solid #add0b6;
+  border-radius: 14px;
+  background: #edf8ef;
+  padding: 13px 16px;
+  color: #315d3b;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .perfume-card-content { min-height: auto; }
+  .details-link { margin-top: 20px; }
+}
